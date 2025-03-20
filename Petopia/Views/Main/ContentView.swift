@@ -8,13 +8,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel: PetViewModel
+    @ObservedObject var viewModel: PetViewModel
     @State private var selectedTab = 0
-    
-    init() {
-        let pet = PetViewModel.loadPet()
-        _viewModel = StateObject(wrappedValue: PetViewModel(pet: pet))
-    }
+    @State private var saveTimer: Timer?
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -45,16 +41,27 @@ struct ContentView: View {
         .onAppear {
             // Request notification permissions
             NotificationManager.shared.requestPermissions()
+            
+            // Create auto-save timer (every 30 seconds)
+            saveTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+                AppDataManager.shared.saveAllData(viewModel: viewModel)
+                print("Auto-save triggered")
+            }
         }
         .onDisappear {
-            // Save pet data when app closes
-            viewModel.savePet()
+            // Cancel the timer when the view disappears
+            saveTimer?.invalidate()
+            
+            // Final save when view disappears
+            AppDataManager.shared.saveAllData(viewModel: viewModel)
+            print("ContentView disappeared - Saving data")
         }
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        let previewViewModel = PetViewModel()
+        ContentView(viewModel: previewViewModel)
     }
 }

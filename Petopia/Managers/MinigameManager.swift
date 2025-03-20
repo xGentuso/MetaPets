@@ -5,6 +5,13 @@
 //  Created for Petopia minigames system
 //
 
+//
+//  MinigameManager.swift
+//  Petopia
+//
+//  Created for Petopia minigames system
+//
+
 import Foundation
 
 class MinigameManager {
@@ -121,19 +128,33 @@ class MinigameManager {
             storedTimes[id.uuidString] = date
         }
         
-        UserDefaults.standard.set(try? PropertyListEncoder().encode(storedTimes), forKey: "MinigameLastPlayed")
+        // Use PropertyListEncoder for more robust Date encoding
+        if let encoded = try? PropertyListEncoder().encode(storedTimes) {
+            UserDefaults.standard.set(encoded, forKey: "MinigameLastPlayed")
+        }
     }
     
     private func loadLastPlayedTimes() {
-        guard let data = UserDefaults.standard.data(forKey: "MinigameLastPlayed"),
-              let storedTimes = try? PropertyListDecoder().decode([String: Date].self, from: data) else {
+        guard let data = UserDefaults.standard.data(forKey: "MinigameLastPlayed") else {
             return
         }
         
-        for (idString, date) in storedTimes {
-            if let id = UUID(uuidString: idString) {
-                lastPlayedTimes[id] = date
+        do {
+            let storedTimes = try PropertyListDecoder().decode([String: Date].self, from: data)
+            
+            for (idString, date) in storedTimes {
+                if let id = UUID(uuidString: idString) {
+                    lastPlayedTimes[id] = date
+                }
             }
+        } catch {
+            print("Error loading minigame times: \(error)")
         }
+    }
+    
+    // For testing or resetting
+    func clearPlayTimes() {
+        lastPlayedTimes = [:]
+        saveLastPlayedTimes()
     }
 }

@@ -1,3 +1,10 @@
+//
+//  PetViewModel.swift
+//  Petopia
+//
+//  Created by ryan mota on 2025-03-20.
+//
+
 import SwiftUI
 import Combine
 
@@ -74,19 +81,10 @@ class PetViewModel: ObservableObject {
     }
     
     private func loadCurrencyData() {
-        if let savedDate = UserDefaults.standard.object(forKey: "LastDailyBonusDate") as? Date {
-            lastDailyBonusDate = savedDate
-        }
-        
-        dailyBonusStreak = UserDefaults.standard.integer(forKey: "DailyBonusStreak")
-    }
-    
-    private func saveCurrencyData() {
-        if let lastDate = lastDailyBonusDate {
-            UserDefaults.standard.set(lastDate, forKey: "LastDailyBonusDate")
-        }
-        
-        UserDefaults.standard.set(dailyBonusStreak, forKey: "DailyBonusStreak")
+        // Load from AppDataManager instead of directly from UserDefaults
+        let bonusData = AppDataManager.shared.loadDailyBonusData()
+        lastDailyBonusDate = bonusData.0
+        dailyBonusStreak = bonusData.1
     }
     
     private func updatePetWithTimeElapsed() {
@@ -98,6 +96,9 @@ class PetViewModel: ObservableObject {
         
         // Check if notifications should be sent
         checkForNotifications()
+        
+        // Auto-save after stats update
+        autoSave()
     }
     
     private func checkForNotifications() {
@@ -127,10 +128,15 @@ class PetViewModel: ObservableObject {
     // Currency methods
     func earnCurrency(amount: Int, description: String) {
         CurrencyManager.shared.addCurrency(to: &pet, amount: amount, description: description)
+        autoSave() // Save after earning currency
     }
     
     func spendCurrency(amount: Int, description: String) -> Bool {
-        return CurrencyManager.shared.spendCurrency(from: &pet, amount: amount, description: description)
+        let result = CurrencyManager.shared.spendCurrency(from: &pet, amount: amount, description: description)
+        if result {
+            autoSave() // Save after successful currency spend
+        }
+        return result
     }
     
     func claimDailyBonus() -> Int {
@@ -158,12 +164,12 @@ class PetViewModel: ObservableObject {
         // Update last claim date
         lastDailyBonusDate = today
         
-        // Save streak data
-        saveCurrencyData()
-        
         // Get bonus amount and add currency
         let bonusAmount = CurrencyManager.shared.getDailyBonusAmount(streak: dailyBonusStreak)
         earnCurrency(amount: bonusAmount, description: "Daily login bonus (Day \(dailyBonusStreak))")
+        
+        // Save after claiming bonus
+        autoSave()
         
         return bonusAmount
     }
@@ -187,6 +193,7 @@ class PetViewModel: ObservableObject {
     
     func recordMinigamePlayed(_ minigame: Minigame) {
         MinigameManager.shared.recordGamePlayed(minigame: minigame)
+        autoSave() // Save after recording minigame play
     }
     
     func awardMinigameReward(minigame: Minigame, score: Int, maxScore: Int) {
@@ -201,6 +208,9 @@ class PetViewModel: ObservableObject {
             // Also increase pet happiness
             let happinessBoost = min(100 - pet.happiness, 10.0 * percentage)
             pet.happiness += happinessBoost
+            
+            // Save after awarding reward
+            autoSave()
         }
     }
     
@@ -210,6 +220,8 @@ class PetViewModel: ObservableObject {
         
         // Earn some currency for feeding
         earnCurrency(amount: 5, description: "Fed pet with \(food.name)")
+        
+        autoSave() // Save after feeding
     }
     
     func play(game: Game) {
@@ -217,6 +229,8 @@ class PetViewModel: ObservableObject {
         
         // Earn some currency for playing
         earnCurrency(amount: 8, description: "Played \(game.name) with pet")
+        
+        autoSave() // Save after playing
     }
     
     func clean() {
@@ -224,6 +238,8 @@ class PetViewModel: ObservableObject {
         
         // Earn some currency for cleaning
         earnCurrency(amount: 6, description: "Cleaned pet")
+        
+        autoSave() // Save after cleaning
     }
     
     func heal(medicine: Medicine) {
@@ -233,6 +249,8 @@ class PetViewModel: ObservableObject {
         if pet.health < 50 {
             earnCurrency(amount: 10, description: "Healed pet when sick")
         }
+        
+        autoSave() // Save after healing
     }
     
     func sleep(hours: Int) {
@@ -240,12 +258,15 @@ class PetViewModel: ObservableObject {
         
         // Earn some currency for proper rest
         earnCurrency(amount: hours * 2, description: "Pet slept for \(hours) hours")
+        
+        autoSave() // Save after sleeping
     }
     
     // Purchase methods
     func buyFood(food: Food) -> Bool {
         if spendCurrency(amount: food.price, description: "Purchased \(food.name)") {
             // Add logic for adding to inventory if needed
+            autoSave() // Save after purchase
             return true
         }
         return false
@@ -254,6 +275,7 @@ class PetViewModel: ObservableObject {
     func buyMedicine(medicine: Medicine) -> Bool {
         if spendCurrency(amount: medicine.price, description: "Purchased \(medicine.name)") {
             // Add logic for adding to inventory if needed
+            autoSave() // Save after purchase
             return true
         }
         return false
@@ -262,14 +284,16 @@ class PetViewModel: ObservableObject {
     func buyAccessory(accessory: Accessory) -> Bool {
         if spendCurrency(amount: accessory.price, description: "Purchased \(accessory.name)") {
             addAccessory(accessory)
+            autoSave() // Save after purchase
             return true
         }
         return false
     }
     
-    // Original methods
+    // Other methods
     func rename(newName: String) {
         pet.name = newName
+        autoSave() // Save after renaming
     }
     
     func addAccessory(_ accessory: Accessory) {
@@ -279,24 +303,17 @@ class PetViewModel: ObservableObject {
         }
         
         pet.accessories.append(accessory)
+        autoSave() // Save after adding accessory
     }
     
     func removeAccessory(at position: Accessory.AccessoryPosition) {
         pet.accessories.removeAll { $0.position == position }
+        autoSave() // Save after removing accessory
     }
     
-    // Save and load pet data
-    func savePet() {
-        if let encoded = try? JSONEncoder().encode(pet) {
-            UserDefaults.standard.set(encoded, forKey: "SavedPet")
-        }
-    }
-    
-    static func loadPet() -> Pet? {
-        if let savedPetData = UserDefaults.standard.data(forKey: "SavedPet"),
-           let pet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
-            return pet
-        }
-        return nil
+    // Save data
+    private func autoSave() {
+        // Use AppDataManager to save all data
+        AppDataManager.shared.saveAllData(viewModel: self)
     }
 }
