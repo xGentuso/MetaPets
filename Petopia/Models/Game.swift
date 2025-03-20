@@ -6,3 +6,12 @@
 //
 
 import Foundation
+
+struct Game: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    var funValue: Double
+    var energyCost: Double
+    var messValue: Double
+    var imageName: String
+}

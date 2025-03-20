@@ -6,3 +6,12 @@
 //
 
 import Foundation
+
+struct Medicine: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    var healthValue: Double
+    var bitternessValue: Double
+    var price: Int
+    var imageName: String
+}

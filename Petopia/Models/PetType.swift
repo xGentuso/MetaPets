@@ -6,3 +6,11 @@
 //
 
 import Foundation
+
+enum PetType: String, CaseIterable, Codable {
+    case cat, dog, rabbit, dragon, robot
+    
+    var baseImage: String {
+        "pet_\(self.rawValue)"
+    }
+}

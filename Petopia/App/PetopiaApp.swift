@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct PetopiaApp: App {
+struct Petopia: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
