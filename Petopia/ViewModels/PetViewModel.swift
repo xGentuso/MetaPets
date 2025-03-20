@@ -1,10 +1,3 @@
-//
-//  PetViewModel.swift
-//  Petopia
-//
-//  Created by ryan mota on 2025-03-20.
-//
-
 import SwiftUI
 import Combine
 
@@ -14,6 +7,10 @@ class PetViewModel: ObservableObject {
     @Published var availableGames: [Game] = []
     @Published var availableMedicine: [Medicine] = []
     @Published var availableAccessories: [Accessory] = []
+    
+    // Currency-related properties
+    @Published var lastDailyBonusDate: Date?
+    @Published var dailyBonusStreak: Int = 0
     
     private var lastUpdateTime: Date
     private var timer: AnyCancellable?
@@ -34,6 +31,9 @@ class PetViewModel: ObservableObject {
         
         // Load items
         loadItems()
+        
+        // Load currency data
+        loadCurrencyData()
         
         // Setup timer to update pet stats periodically
         timer = Timer.publish(every: 60, on: .main, in: .common)
@@ -73,6 +73,22 @@ class PetViewModel: ObservableObject {
         ]
     }
     
+    private func loadCurrencyData() {
+        if let savedDate = UserDefaults.standard.object(forKey: "LastDailyBonusDate") as? Date {
+            lastDailyBonusDate = savedDate
+        }
+        
+        dailyBonusStreak = UserDefaults.standard.integer(forKey: "DailyBonusStreak")
+    }
+    
+    private func saveCurrencyData() {
+        if let lastDate = lastDailyBonusDate {
+            UserDefaults.standard.set(lastDate, forKey: "LastDailyBonusDate")
+        }
+        
+        UserDefaults.standard.set(dailyBonusStreak, forKey: "DailyBonusStreak")
+    }
+    
     private func updatePetWithTimeElapsed() {
         let currentTime = Date()
         let timeInterval = currentTime.timeIntervalSince(lastUpdateTime)
@@ -108,27 +124,150 @@ class PetViewModel: ObservableObject {
         }
     }
     
-    // Actions
+    // Currency methods
+    func earnCurrency(amount: Int, description: String) {
+        CurrencyManager.shared.addCurrency(to: &pet, amount: amount, description: description)
+    }
+    
+    func spendCurrency(amount: Int, description: String) -> Bool {
+        return CurrencyManager.shared.spendCurrency(from: &pet, amount: amount, description: description)
+    }
+    
+    func claimDailyBonus() -> Int {
+        let today = Calendar.current.startOfDay(for: Date())
+        
+        // Check if already claimed today
+        if let lastDate = lastDailyBonusDate,
+           Calendar.current.isDate(lastDate, inSameDayAs: today) {
+            return 0
+        }
+        
+        // Check if streak should continue or reset
+        if let lastDate = lastDailyBonusDate,
+           let dayDifference = Calendar.current.dateComponents([.day],
+                                                            from: Calendar.current.startOfDay(for: lastDate),
+                                                            to: today).day,
+           dayDifference == 1 {
+            // Continue streak
+            dailyBonusStreak += 1
+        } else {
+            // Reset streak
+            dailyBonusStreak = 1
+        }
+        
+        // Update last claim date
+        lastDailyBonusDate = today
+        
+        // Save streak data
+        saveCurrencyData()
+        
+        // Get bonus amount and add currency
+        let bonusAmount = CurrencyManager.shared.getDailyBonusAmount(streak: dailyBonusStreak)
+        earnCurrency(amount: bonusAmount, description: "Daily login bonus (Day \(dailyBonusStreak))")
+        
+        return bonusAmount
+    }
+    
+    func getTransactionHistory() -> [CurrencyTransaction] {
+        return CurrencyManager.shared.transactions
+    }
+    
+    // Minigame properties and methods
+    var availableMinigames: [Minigame] {
+        return MinigameManager.shared.availableMinigames
+    }
+    
+    func canPlayMinigame(_ minigame: Minigame) -> Bool {
+        return MinigameManager.shared.canPlay(minigame: minigame)
+    }
+    
+    func timeUntilMinigameAvailable(_ minigame: Minigame) -> TimeInterval {
+        return MinigameManager.shared.timeUntilAvailable(minigame: minigame)
+    }
+    
+    func recordMinigamePlayed(_ minigame: Minigame) {
+        MinigameManager.shared.recordGamePlayed(minigame: minigame)
+    }
+    
+    func awardMinigameReward(minigame: Minigame, score: Int, maxScore: Int) {
+        // Calculate reward based on score and difficulty
+        let percentage = min(1.0, Double(score) / Double(maxScore))
+        let baseReward = minigame.possibleReward
+        let earnedReward = Int(Double(baseReward) * percentage)
+        
+        if earnedReward > 0 {
+            earnCurrency(amount: earnedReward, description: "Played \(minigame.name) minigame")
+            
+            // Also increase pet happiness
+            let happinessBoost = min(100 - pet.happiness, 10.0 * percentage)
+            pet.happiness += happinessBoost
+        }
+    }
+    
+    // Actions with currency rewards
     func feed(food: Food) {
         pet.feed(food: food)
+        
+        // Earn some currency for feeding
+        earnCurrency(amount: 5, description: "Fed pet with \(food.name)")
     }
     
     func play(game: Game) {
         pet.play(game: game)
+        
+        // Earn some currency for playing
+        earnCurrency(amount: 8, description: "Played \(game.name) with pet")
     }
     
     func clean() {
         pet.clean()
+        
+        // Earn some currency for cleaning
+        earnCurrency(amount: 6, description: "Cleaned pet")
     }
     
     func heal(medicine: Medicine) {
         pet.heal(medicine: medicine)
+        
+        // Earn some currency for healing (only if pet was sick)
+        if pet.health < 50 {
+            earnCurrency(amount: 10, description: "Healed pet when sick")
+        }
     }
     
     func sleep(hours: Int) {
         pet.sleep(hours: hours)
+        
+        // Earn some currency for proper rest
+        earnCurrency(amount: hours * 2, description: "Pet slept for \(hours) hours")
     }
     
+    // Purchase methods
+    func buyFood(food: Food) -> Bool {
+        if spendCurrency(amount: food.price, description: "Purchased \(food.name)") {
+            // Add logic for adding to inventory if needed
+            return true
+        }
+        return false
+    }
+    
+    func buyMedicine(medicine: Medicine) -> Bool {
+        if spendCurrency(amount: medicine.price, description: "Purchased \(medicine.name)") {
+            // Add logic for adding to inventory if needed
+            return true
+        }
+        return false
+    }
+    
+    func buyAccessory(accessory: Accessory) -> Bool {
+        if spendCurrency(amount: accessory.price, description: "Purchased \(accessory.name)") {
+            addAccessory(accessory)
+            return true
+        }
+        return false
+    }
+    
+    // Original methods
     func rename(newName: String) {
         pet.name = newName
     }

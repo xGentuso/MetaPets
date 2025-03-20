@@ -5,15 +5,32 @@
 //  Created by ryan mota on 2025-03-20.
 //
 
+//
+//  StoreView.swift
+//  Petopia
+//
+//  Created by ryan mota on 2025-03-20.
+//
+
 import SwiftUI
 
 struct StoreView: View {
     @ObservedObject var viewModel: PetViewModel
     @State private var selectedTab = 0
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    @State private var insufficientFunds = false
     
     var body: some View {
         NavigationView {
             VStack {
+                // Currency display
+                HStack {
+                    Spacer()
+                    CurrencyBadge(amount: viewModel.pet.currency)
+                }
+                .padding(.horizontal)
+                
                 Picker("Store Section", selection: $selectedTab) {
                     Text("Medicine").tag(0)
                     Text("Accessories").tag(1)
@@ -24,7 +41,15 @@ struct StoreView: View {
                 if selectedTab == 0 {
                     List(viewModel.availableMedicine) { medicine in
                         Button(action: {
-                            viewModel.heal(medicine: medicine)
+                            if viewModel.buyMedicine(medicine: medicine) {
+                                viewModel.heal(medicine: medicine)
+                                alertMessage = "Successfully purchased \(medicine.name)"
+                                insufficientFunds = false
+                            } else {
+                                alertMessage = "Not enough coins to purchase \(medicine.name)"
+                                insufficientFunds = true
+                            }
+                            showingAlert = true
                         }) {
                             HStack {
                                 Image(systemName: "cross.case")
@@ -51,7 +76,16 @@ struct StoreView: View {
                 } else {
                     List(viewModel.availableAccessories) { accessory in
                         Button(action: {
-                            viewModel.addAccessory(accessory)
+                            if viewModel.pet.level >= accessory.unlockLevel {
+                                if viewModel.buyAccessory(accessory: accessory) {
+                                    alertMessage = "Successfully purchased \(accessory.name)"
+                                    insufficientFunds = false
+                                } else {
+                                    alertMessage = "Not enough coins to purchase \(accessory.name)"
+                                    insufficientFunds = true
+                                }
+                                showingAlert = true
+                            }
                         }) {
                             HStack {
                                 Image(systemName: "gift")
@@ -85,6 +119,15 @@ struct StoreView: View {
                 }
             }
             .navigationTitle("Store")
+            .alert(isPresented: $showingAlert) {
+                Alert(
+                    title: Text(insufficientFunds ? "Insufficient Funds" : "Purchase Successful"),
+                    message: Text(alertMessage),
+                    dismissButton: .default(Text("OK")) {
+                        insufficientFunds = false
+                    }
+                )
+            }
         }
     }
 }

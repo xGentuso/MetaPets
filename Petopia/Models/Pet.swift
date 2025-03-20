@@ -21,6 +21,9 @@ struct Pet: Codable, Identifiable {
     var cleanliness: Double = 70
     var energy: Double = 70
     
+    // Currency for purchasing items
+    var currency: Int = 50  // Start with some initial currency
+    
     // Experience and leveling
     var experience: Int = 0
     var level: Int = 1

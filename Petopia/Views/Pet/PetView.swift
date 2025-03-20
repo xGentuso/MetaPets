@@ -15,6 +15,13 @@ struct PetView: View {
         VStack {
             // Pet name and level
             VStack(spacing: 4) {
+                HStack {
+                    Spacer()
+                    
+                    CurrencyBadge(amount: viewModel.pet.currency)
+                }
+                .padding(.horizontal)
+                
                 Text(viewModel.pet.name)
                     .font(.largeTitle)
                     .fontWeight(.bold)
@@ -24,35 +31,6 @@ struct PetView: View {
                     .foregroundColor(.secondary)
             }
             .padding()
-        }
-    }
-    
-    private var backgroundColorForStatus: Color {
-        switch viewModel.pet.currentStatus {
-        case .happy: return Color.green.opacity(0.2)
-        case .hungry: return Color.orange.opacity(0.2)
-        case .sick: return Color.red.opacity(0.2)
-        case .sleepy: return Color.purple.opacity(0.2)
-        case .dirty: return Color.brown.opacity(0.2)
-        }
-    }
-    
-    private var animationDuration: Double {
-        switch viewModel.pet.currentStatus {
-        case .happy: return 1.0  // Bouncy and energetic
-        case .hungry: return 2.0  // Slower, lethargic
-        case .sick: return 1.5    // Slightly shaky
-        case .sleepy: return 3.0  // Very slow, sleepy
-        case .dirty: return 1.8   // Uncomfortable
-        }
-    }
-}
-
-struct PetView_Previews: PreviewProvider {
-    static var previews: some View {
-        PetView(viewModel: PetViewModel())
-    }
-}.padding()
             
             // Pet animation area
             ZStack {
@@ -114,3 +92,33 @@ struct PetView_Previews: PreviewProvider {
                     viewModel.sleep(hours: 2)
                 }
             }
+            .padding()
+        }
+    }
+    
+    private var backgroundColorForStatus: Color {
+        switch viewModel.pet.currentStatus {
+        case .happy: return Color.green.opacity(0.2)
+        case .hungry: return Color.orange.opacity(0.2)
+        case .sick: return Color.red.opacity(0.2)
+        case .sleepy: return Color.purple.opacity(0.2)
+        case .dirty: return Color.brown.opacity(0.2)
+        }
+    }
+    
+    private var animationDuration: Double {
+        switch viewModel.pet.currentStatus {
+        case .happy: return 1.0  // Bouncy and energetic
+        case .hungry: return 2.0  // Slower, lethargic
+        case .sick: return 1.5    // Slightly shaky
+        case .sleepy: return 3.0  // Very slow, sleepy
+        case .dirty: return 1.8   // Uncomfortable
+        }
+    }
+}
+
+struct PetView_Previews: PreviewProvider {
+    static var previews: some View {
+        PetView(viewModel: PetViewModel())
+    }
+}

@@ -41,6 +41,18 @@ struct ContentView: View {
                     Label("Store", systemImage: "bag.fill")
                 }
                 .tag(3)
+            
+            MinigamesListView(viewModel: viewModel)
+                .tabItem {
+                    Label("Games", systemImage: "dice.fill")
+                }
+                .tag(4)
+            
+            CurrencyView(viewModel: viewModel)
+                .tabItem {
+                    Label("Currency", systemImage: "dollarsign.circle.fill")
+                }
+                .tag(5)
         }
         .onAppear {
             // Request notification permissions
