@@ -2,8 +2,6 @@
 
 Petopia is a modern virtual pet simulator built with SwiftUI for iOS. Take care of your digital companion, watch it grow, and enjoy a variety of activities together.
 
-![Petopia App Screenshot](https://example.com/screenshot.png)
-
 ## Features
 
 ### Pet Care
