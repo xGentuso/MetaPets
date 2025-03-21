@@ -32,11 +32,23 @@ struct ContentView: View {
                 }
                 .tag(2)
             
+            DailiesView(viewModel: viewModel)
+                .tabItem {
+                    Label("Dailies", systemImage: "calendar.badge.clock")
+                }
+                .tag(3)
+            
+            AchievementsView(viewModel: viewModel)
+                .tabItem {
+                    Label("Achievements", systemImage: "trophy.fill")
+                }
+                .tag(4)
+            
             StoreTabView(viewModel: viewModel)
                 .tabItem {
                     Label("Store", systemImage: "bag.fill")
                 }
-                .tag(3)
+                .tag(5)
         }
         .onAppear {
             // Request notification permissions

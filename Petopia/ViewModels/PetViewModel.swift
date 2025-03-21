@@ -214,6 +214,32 @@ class PetViewModel: ObservableObject {
         }
     }
     
+    // Daily activity methods
+    func completeDailyActivity(activityId: UUID) -> Int? {
+        if let reward = DailiesManager.shared.completeActivity(id: activityId) {
+            // Add currency
+            earnCurrency(amount: reward, description: "Completed daily activity")
+            
+            // Also boost pet happiness a little
+            let happinessBoost = min(100 - pet.happiness, 5.0)
+            pet.happiness += happinessBoost
+            
+            // Auto-save after completing a daily activity
+            autoSave()
+            
+            return reward
+        }
+        return nil
+    }
+    
+    func getAvailableDailyActivities() -> [DailyActivity] {
+        return DailiesManager.shared.getAvailableActivities()
+    }
+    
+    func getAllDailyActivities() -> [DailyActivity] {
+        return DailiesManager.shared.dailyActivities
+    }
+    
     // Actions with currency rewards
     func feed(food: Food) {
         pet.feed(food: food)

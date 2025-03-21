@@ -15,6 +15,9 @@ class AppDataManager {
     private let currencyTransactionsKey = "CurrencyTransactions"
     private let lastDailyBonusKey = "LastDailyBonusDate"
     private let dailyBonusStreakKey = "DailyBonusStreak"
+    private let dailiesKey = "SavedDailyActivities"
+    private let achievementsKey = "SavedAchievements"
+    private let recentUnlocksKey = "RecentlyUnlockedAchievements"
     
     // Save all app data
     func saveAllData(viewModel: PetViewModel) {
@@ -28,6 +31,11 @@ class AppDataManager {
             UserDefaults.standard.set(lastDate, forKey: lastDailyBonusKey)
         }
         UserDefaults.standard.set(viewModel.dailyBonusStreak, forKey: dailyBonusStreakKey)
+        
+        // Save dailies data (handled by DailiesManager)
+        // Save minigames data (handled by MinigameManager)
+        // Save currency transactions (handled by CurrencyManager)
+        // Save achievements data (handled by AchievementManager)
     }
     
     // Load pet data
@@ -53,5 +61,15 @@ class AppDataManager {
         UserDefaults.standard.removeObject(forKey: currencyTransactionsKey)
         UserDefaults.standard.removeObject(forKey: lastDailyBonusKey)
         UserDefaults.standard.removeObject(forKey: dailyBonusStreakKey)
+        UserDefaults.standard.removeObject(forKey: dailiesKey)
+        UserDefaults.standard.removeObject(forKey: achievementsKey)
+        UserDefaults.standard.removeObject(forKey: recentUnlocksKey)
+        
+        // Also clear data in specific managers
+        CurrencyManager.shared.clearTransactions()
+        DailiesManager.shared.resetAllActivities()
+        AchievementManager.shared.resetAllAchievements()
+        
+        print("All app data cleared")
     }
 }
