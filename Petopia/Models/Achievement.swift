@@ -1,5 +1,5 @@
 //
-//  AchievementsView.swift
+//  Achievement.swift
 //  Petopia
 //
 //  Created for Petopia achievement system
@@ -7,204 +7,89 @@
 
 import SwiftUI
 
-struct AchievementsView: View {
-    @ObservedObject var viewModel: PetViewModel
-    @ObservedObject private var achievementManager = AchievementManager.shared
-    @State private var selectedCategory: AchievementCategory?
-    @State private var selectedAchievement: Achievement?
-    @State private var showDetailSheet = false
-    @State private var animateUnlocks = false
+struct Achievement: Identifiable, Codable, Equatable {
+    var id: UUID
+    var title: String
+    var description: String
+    var category: AchievementCategory
+    var difficulty: AchievementDifficulty
+    var goal: Int
+    var progress: Int = 0
+    var rewardAmount: Int
+    var isUnlocked: Bool = false
+    var dateUnlocked: Date?
+    var hidden: Bool = false
     
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header with currency badge
-                HStack {
-                    Text("Achievements")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Spacer()
-                    
-                    CurrencyBadge(amount: viewModel.pet.currency)
-                }
-                .padding(.horizontal)
-                .padding(.top, 10)
-                
-                // Stats summary
-                achievementSummary
-                    .padding(.top, 5)
-                
-                // Category filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    categoryFilters
-                        .padding(.vertical, 8)
-                }
-                .padding(.horizontal)
-                
-                // Achievement list
-                if filteredAchievements.isEmpty {
-                    emptyStateView
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredAchievements) { achievement in
-                                AchievementCell(achievement: achievement)
-                                    .onTapGesture {
-                                        selectedAchievement = achievement
-                                        showDetailSheet = true
-                                    }
-                                    .opacity(shouldShow(achievement) ? 1 : 0.6)
-                            }
-                        }
-                        .padding()
-                    }
-                }
-            }
-            .navigationBarHidden(true)
-            .sheet(isPresented: $showDetailSheet) {
-                if let achievement = selectedAchievement {
-                    AchievementDetailView(achievement: achievement)
-                }
-            }
-            .overlay(
-                unlockedAchievementToast
-                    .opacity(animateUnlocks && !achievementManager.recentlyUnlocked.isEmpty ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.5), value: animateUnlocks)
-            )
-            .onAppear {
-                // Animate recent unlocks after a delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    animateUnlocks = true
-                    
-                    // Auto-dismiss after 3 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        animateUnlocks = false
-                        
-                        // Clear after animation completes
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            achievementManager.clearRecentlyUnlocked()
-                        }
-                    }
-                }
-            }
-        }
+    // Computed property for progress percentage (0.0 to 1.0)
+    var progressPercentage: Double {
+        return min(1.0, Double(progress) / Double(goal))
     }
     
-    // MARK: - Subviews
-    
-    private var achievementSummary: some View {
-        HStack(spacing: 20) {
-            // Bronze count
-            StatisticView(
-                title: "Bronze",
-                value: "\(achievementManager.getAchievements(difficulty: .bronze).filter { $0.isUnlocked }.count)/\(achievementManager.getAchievements(difficulty: .bronze).count)",
-                color: AchievementDifficulty.bronze.color
-            )
-            
-            // Silver count
-            StatisticView(
-                title: "Silver",
-                value: "\(achievementManager.getAchievements(difficulty: .silver).filter { $0.isUnlocked }.count)/\(achievementManager.getAchievements(difficulty: .silver).count)",
-                color: AchievementDifficulty.silver.color
-            )
-            
-            // Gold count
-            StatisticView(
-                title: "Gold",
-                value: "\(achievementManager.getAchievements(difficulty: .gold).filter { $0.isUnlocked }.count)/\(achievementManager.getAchievements(difficulty: .gold).count)",
-                color: AchievementDifficulty.gold.color
-            )
-            
-            // Platinum count
-            StatisticView(
-                title: "Platinum",
-                value: "\(achievementManager.getAchievements(difficulty: .platinum).filter { $0.isUnlocked }.count)/\(achievementManager.getAchievements(difficulty: .platinum).count)",
-                color: AchievementDifficulty.platinum.color
-            )
+    // Updates progress and returns whether achievement was just unlocked
+    mutating func updateProgress(newProgress: Int) -> Bool {
+        // Only update if not already unlocked
+        guard !isUnlocked else {
+            return false
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-    }
-    
-    private var categoryFilters: some View {
-        HStack(spacing: 12) {
-            CategoryButton(
-                title: "All",
-                isSelected: selectedCategory == nil,
-                color: .gray
-            ) {
-                selectedCategory = nil
-            }
-            
-            ForEach(AchievementCategory.allCases, id: \.self) { category in
-                CategoryButton(
-                    title: category.displayName,
-                    isSelected: selectedCategory == category,
-                    color: category.themeColor
-                ) {
-                    selectedCategory = category
-                }
-            }
-        }
-        .padding(.horizontal, 4)
-    }
-    
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "tray")
-                .font(.system(size: 60))
-                .foregroundColor(.gray)
-            
-            Text("No achievements in this category")
-                .font(.headline)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.bottom, 100)
-    }
-    
-    private var unlockedAchievementToast: some View {
-        VStack {
-            if let achievement = achievementManager.recentlyUnlocked.first {
-                VStack(spacing: 12) {
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(achievement.difficulty.color)
-                    
-                    Text("Achievement Unlocked!")
-                        .font(.headline)
-                    
-                    Text(achievement.title)
-                        .font(.system(.subheadline, design: .rounded))
-                        .fontWeight(.medium)
-                    
-                    Text("+\(achievement.rewardAmount) coins")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(UIColor.systemBackground))
-                        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
-                )
-                .padding(.horizontal, 50)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, 100)
-    }
-    
-    // MARK: - Helper Methods
-    
-    // Filter achievements based on selected category
-    private var filteredAchievements: [Achievement] {
-        let achievements = achievementManager.getAchievements(for: selectedCategory)
         
-        // Sort by unlocked status, then by difficulty
-        return achievements.sorted {
-            if $0.isUnlocked && !$1.isUnlocked {
-                return false
-            } else if !$0.isUnlocked && $1.isUnlocked {
+        // Update progress
+        progress = min(newProgress, goal)
+        
+        // Check if achievement is now complete
+        if progress >= goal {
+            isUnlocked = true
+            dateUnlocked = Date()
+            return true // Just unlocked
+        }
+        
+        return false // Not unlocked yet
+    }
+    
+    // For Equatable conformance
+    static func == (lhs: Achievement, rhs: Achievement) -> Bool {
+        return lhs.id == rhs.id
+    }
+}
+
+// Achievement categories
+enum AchievementCategory: String, Codable, CaseIterable {
+    case petCare, games, dailies, collection, special
+    
+    var displayName: String {
+        switch self {
+        case .petCare: return "Pet Care"
+        case .games: return "Games"
+        case .dailies: return "Daily Activities"
+        case .collection: return "Collection"
+        case .special: return "Special"
+        }
+    }
+    
+    var themeColor: Color {
+        switch self {
+        case .petCare: return .blue
+        case .games: return .purple
+        case .dailies: return .green
+        case .collection: return .orange
+        case .special: return .pink
+        }
+    }
+}
+
+// Achievement difficulty levels
+enum AchievementDifficulty: String, Codable, CaseIterable {
+    case bronze, silver, gold, platinum
+    
+    var color: Color {
+        switch self {
+        case .bronze: return Color(red: 0.8, green: 0.5, blue: 0.2)
+        case .silver: return Color(red: 0.75, green: 0.75, blue: 0.75)
+        case .gold: return Color(red: 1.0, green: 0.84, blue: 0.0)
+        case .platinum: return Color(red: 0.5, green: 0.5, blue: 0.9)
+        }
+    }
+    
+    var displayName: String {
+        return self.rawValue.capitalized
+    }
+}

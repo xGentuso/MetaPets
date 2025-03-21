@@ -125,9 +125,28 @@ class PetViewModel: ObservableObject {
         }
     }
     
+    // Achievement tracking methods
+    private func trackAchievements() {
+        // Check for perfect pet achievement
+        if pet.hunger >= 90 && pet.happiness >= 90 && pet.health >= 90 &&
+           pet.cleanliness >= 90 && pet.energy >= 90 {
+            AchievementManager.shared.trackPerfectStatus()
+        }
+        
+        // Track level achievements
+        AchievementManager.shared.trackLevelUp(newLevel: pet.level)
+        
+        // Track evolution achievement when the stage changes
+        AchievementManager.shared.trackEvolution(stage: pet.stage)
+    }
+    
     // Currency methods
     func earnCurrency(amount: Int, description: String) {
         CurrencyManager.shared.addCurrency(to: &pet, amount: amount, description: description)
+        
+        // Track currency earned achievement
+        AchievementManager.shared.trackCurrencyEarned(amount: amount)
+        
         autoSave() // Save after earning currency
     }
     
@@ -164,6 +183,9 @@ class PetViewModel: ObservableObject {
         // Update last claim date
         lastDailyBonusDate = today
         
+        // Track streak achievements
+        AchievementManager.shared.trackDailyStreak(streak: dailyBonusStreak)
+        
         // Get bonus amount and add currency
         let bonusAmount = CurrencyManager.shared.getDailyBonusAmount(streak: dailyBonusStreak)
         earnCurrency(amount: bonusAmount, description: "Daily login bonus (Day \(dailyBonusStreak))")
@@ -193,6 +215,10 @@ class PetViewModel: ObservableObject {
     
     func recordMinigamePlayed(_ minigame: Minigame) {
         MinigameManager.shared.recordGamePlayed(minigame: minigame)
+        
+        // Track minigame played achievement
+        AchievementManager.shared.trackMinigamePlayed()
+        
         autoSave() // Save after recording minigame play
     }
     
@@ -224,6 +250,9 @@ class PetViewModel: ObservableObject {
             let happinessBoost = min(100 - pet.happiness, 5.0)
             pet.happiness += happinessBoost
             
+            // Track daily activity achievement
+            AchievementManager.shared.trackDailyActivity()
+            
             // Auto-save after completing a daily activity
             autoSave()
             
@@ -247,6 +276,12 @@ class PetViewModel: ObservableObject {
         // Earn some currency for feeding
         earnCurrency(amount: 5, description: "Fed pet with \(food.name)")
         
+        // Track feeding achievement
+        AchievementManager.shared.trackFeeding()
+        
+        // Check for other achievements
+        trackAchievements()
+        
         autoSave() // Save after feeding
     }
     
@@ -256,6 +291,9 @@ class PetViewModel: ObservableObject {
         // Earn some currency for playing
         earnCurrency(amount: 8, description: "Played \(game.name) with pet")
         
+        // Check for achievements
+        trackAchievements()
+        
         autoSave() // Save after playing
     }
     
@@ -264,6 +302,12 @@ class PetViewModel: ObservableObject {
         
         // Earn some currency for cleaning
         earnCurrency(amount: 6, description: "Cleaned pet")
+        
+        // Track cleaning achievement
+        AchievementManager.shared.trackCleaning()
+        
+        // Check for other achievements
+        trackAchievements()
         
         autoSave() // Save after cleaning
     }
@@ -276,6 +320,12 @@ class PetViewModel: ObservableObject {
             earnCurrency(amount: 10, description: "Healed pet when sick")
         }
         
+        // Track healing achievement
+        AchievementManager.shared.trackHealing()
+        
+        // Check for other achievements
+        trackAchievements()
+        
         autoSave() // Save after healing
     }
     
@@ -284,6 +334,12 @@ class PetViewModel: ObservableObject {
         
         // Earn some currency for proper rest
         earnCurrency(amount: hours * 2, description: "Pet slept for \(hours) hours")
+        
+        // Track sleeping achievement
+        AchievementManager.shared.trackSleeping(hours: hours)
+        
+        // Check for other achievements
+        trackAchievements()
         
         autoSave() // Save after sleeping
     }
@@ -310,6 +366,10 @@ class PetViewModel: ObservableObject {
     func buyAccessory(accessory: Accessory) -> Bool {
         if spendCurrency(amount: accessory.price, description: "Purchased \(accessory.name)") {
             addAccessory(accessory)
+            
+            // Track accessory collection achievement
+            AchievementManager.shared.trackAccessoryCollected()
+            
             autoSave() // Save after purchase
             return true
         }
