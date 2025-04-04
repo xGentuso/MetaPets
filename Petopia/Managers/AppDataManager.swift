@@ -18,6 +18,10 @@ class AppDataManager {
     private let dailiesKey = "SavedDailyActivities"
     private let achievementsKey = "SavedAchievements"
     private let recentUnlocksKey = "RecentlyUnlockedAchievements"
+    private let onboardingCompleteKey = "HasCompletedOnboarding"
+    private let tipsSeenKey = "TipsTopicsSeen"
+    
+    // MARK: - Save Methods
     
     // Save all app data
     func saveAllData(viewModel: PetViewModel) {
@@ -38,6 +42,8 @@ class AppDataManager {
         // Save achievements data (handled by AchievementManager)
     }
     
+    // MARK: - Load Methods
+    
     // Load pet data
     func loadPet() -> Pet? {
         if let savedPetData = UserDefaults.standard.data(forKey: petKey),
@@ -54,6 +60,53 @@ class AppDataManager {
         return (lastDate, streak)
     }
     
+    // MARK: - Onboarding Data
+    
+    // Check if onboarding has been completed
+    func hasCompletedOnboarding() -> Bool {
+        return UserDefaults.standard.bool(forKey: onboardingCompleteKey)
+    }
+    
+    // Save onboarding completion state
+    func setOnboardingComplete(_ complete: Bool) {
+        UserDefaults.standard.set(complete, forKey: onboardingCompleteKey)
+    }
+    
+    // Create a new pet from onboarding
+    func createNewPet(name: String, type: PetType) -> Pet {
+        let newPet = Pet(
+            name: name,
+            type: type,
+            birthDate: Date()
+        )
+        
+        // Save the new pet
+        if let encoded = try? JSONEncoder().encode(newPet) {
+            UserDefaults.standard.set(encoded, forKey: petKey)
+        }
+        
+        return newPet
+    }
+    
+    // MARK: - Tips Tracking
+    
+    // Mark a tip category as seen
+    func markTipCategorySeen(_ category: String) {
+        var seenCategories = UserDefaults.standard.stringArray(forKey: tipsSeenKey) ?? []
+        if !seenCategories.contains(category) {
+            seenCategories.append(category)
+            UserDefaults.standard.set(seenCategories, forKey: tipsSeenKey)
+        }
+    }
+    
+    // Check if a tip category has been seen
+    func hasTipCategoryBeenSeen(_ category: String) -> Bool {
+        let seenCategories = UserDefaults.standard.stringArray(forKey: tipsSeenKey) ?? []
+        return seenCategories.contains(category)
+    }
+    
+    // MARK: - Data Management
+    
     // Clear all data (for testing or resetting)
     func clearAllData() {
         UserDefaults.standard.removeObject(forKey: petKey)
@@ -64,6 +117,8 @@ class AppDataManager {
         UserDefaults.standard.removeObject(forKey: dailiesKey)
         UserDefaults.standard.removeObject(forKey: achievementsKey)
         UserDefaults.standard.removeObject(forKey: recentUnlocksKey)
+        UserDefaults.standard.removeObject(forKey: onboardingCompleteKey)
+        UserDefaults.standard.removeObject(forKey: tipsSeenKey)
         
         // Also clear data in specific managers
         CurrencyManager.shared.clearTransactions()
@@ -71,5 +126,58 @@ class AppDataManager {
         AchievementManager.shared.resetAllAchievements()
         
         print("All app data cleared")
+    }
+    
+    // MARK: - Data Backup & Restore
+    
+    // Export all data to a JSON file (for backup)
+    func exportData() -> Data? {
+        var exportDict: [String: Any] = [:]
+        
+        // Add UserDefaults data
+        if let pet = loadPet(), let petData = try? JSONEncoder().encode(pet) {
+            exportDict["pet"] = petData.base64EncodedString()
+        }
+        
+        exportDict["dailyBonusStreak"] = UserDefaults.standard.integer(forKey: dailyBonusStreakKey)
+        if let lastBonusDate = UserDefaults.standard.object(forKey: lastDailyBonusKey) as? Date {
+            exportDict["lastDailyBonusDate"] = lastBonusDate.timeIntervalSince1970
+        }
+        
+        // Convert to JSON
+        return try? JSONSerialization.data(withJSONObject: exportDict, options: .prettyPrinted)
+    }
+    
+    // Import data from JSON (for restore)
+    func importData(jsonData: Data) -> Bool {
+        do {
+            guard let dict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                return false
+            }
+            
+            // Restore pet data
+            if let petBase64 = dict["pet"] as? String,
+               let petData = Data(base64Encoded: petBase64),
+               let pet = try? JSONDecoder().decode(Pet.self, from: petData) {
+                if let encoded = try? JSONEncoder().encode(pet) {
+                    UserDefaults.standard.set(encoded, forKey: petKey)
+                }
+            }
+            
+            // Restore other simple data
+            if let streak = dict["dailyBonusStreak"] as? Int {
+                UserDefaults.standard.set(streak, forKey: dailyBonusStreakKey)
+            }
+            
+            if let lastBonusTimeInterval = dict["lastDailyBonusDate"] as? TimeInterval {
+                let date = Date(timeIntervalSince1970: lastBonusTimeInterval)
+                UserDefaults.standard.set(date, forKey: lastDailyBonusKey)
+            }
+            
+            return true
+        } catch {
+            print("Error importing data: \(error)")
+            return false
+        }
     }
 }

@@ -11,14 +11,26 @@ struct ContentView: View {
     @ObservedObject var viewModel: PetViewModel
     @State private var selectedTab = 0
     @State private var saveTimer: Timer?
+    @State private var showingSettings = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            PetView(viewModel: viewModel)
-                .tabItem {
-                    Label("Pet", systemImage: "pawprint.fill")
-                }
-                .tag(0)
+            NavigationView {
+                PetView(viewModel: viewModel)
+                    .navigationBarItems(trailing:
+                        Button(action: {
+                            showingSettings = true
+                        }) {
+                            Image(systemName: "gear")
+                                .font(.system(size: 20))
+                                .foregroundColor(.blue)
+                        }
+                    )
+            }
+            .tabItem {
+                Label("Pet", systemImage: "pawprint.fill")
+            }
+            .tag(0)
             
             FoodView(viewModel: viewModel)
                 .tabItem {
@@ -49,6 +61,9 @@ struct ContentView: View {
                     Label("Store", systemImage: "bag.fill")
                 }
                 .tag(5)
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(viewModel: viewModel)
         }
         .onAppear {
             // Request notification permissions
