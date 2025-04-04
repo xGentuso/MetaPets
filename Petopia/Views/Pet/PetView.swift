@@ -1,10 +1,3 @@
-//
-//  PetView.swift
-//  Petopia
-//
-//  Created by ryan mota on 2025-03-20.
-//
-
 import SwiftUI
 
 struct PetView: View {
@@ -42,10 +35,9 @@ struct PetView: View {
                         .frame(width: 220, height: 220) // Smaller circle
                     
                     // Pet image
-                    Image(systemName: "pawprint.circle.fill") // Placeholder, would be a custom image
+                    Image(viewModel.pet.type.rawValue)
                         .resizable()
                         .scaledToFit()
-                        .foregroundColor(viewModel.pet.color)
                         .frame(width: 160, height: 160) // Smaller image
                         .offset(y: isAnimating ? -8 : 8) // Smaller animation offset
                         .animation(
