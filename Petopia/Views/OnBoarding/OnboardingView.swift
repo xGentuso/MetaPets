@@ -1,5 +1,7 @@
 //
 //  OnboardingView.swift
+//
+//  OnboardingView.swift
 //  Petopia
 //
 //  Created for Petopia
@@ -145,11 +147,10 @@ struct OnboardingView: View {
                     .frame(width: 200, height: 200)
                 
                 if let petType = viewModel.selectedPetType {
-                    Image(systemName: petTypeToIcon(petType))
+                    Image(petType.rawValue)
                         .resizable()
                         .scaledToFit()
-                        .foregroundColor(.blue)
-                        .frame(width: 100, height: 100)
+                        .frame(width: 150, height: 150)
                 }
             }
             .padding(.bottom, 30)
@@ -260,26 +261,9 @@ struct OnboardingView: View {
             .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
         }
     }
-    
-    // Helper function to convert pet type to system icon
-    private func petTypeToIcon(_ petType: PetType) -> String {
-        switch petType {
-        case .cat:
-            return "cat.fill"
-        case .dog:
-            return "hare.fill"
-        case .rabbit:
-            return "hare.fill"
-        case .dragon:
-            return "flame.fill"
-        case .robot:
-            return "flipphone"
-        }
-    }
 }
 
 // MARK: - Supporting Views
-
 struct PetSelectionCard: View {
     let petType: PetType
     let isSelected: Bool
@@ -293,11 +277,11 @@ struct PetSelectionCard: View {
                         .fill(isSelected ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2))
                         .frame(width: 100, height: 100)
                     
-                    Image(systemName: petTypeToIcon(petType))
+                    Image(petType.rawValue)
                         .resizable()
                         .scaledToFit()
                         .foregroundColor(isSelected ? .blue : .gray)
-                        .frame(width: 50, height: 50)
+                        .frame(width: 80, height: 80)
                 }
                 
                 Text(petType.rawValue.capitalized)
@@ -309,21 +293,6 @@ struct PetSelectionCard: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
             )
-        }
-    }
-    
-    private func petTypeToIcon(_ petType: PetType) -> String {
-        switch petType {
-        case .cat:
-            return "cat.fill"
-        case .dog:
-            return "hare.fill"
-        case .rabbit:
-            return "hare.fill"
-        case .dragon:
-            return "flame.fill"
-        case .robot:
-            return "flipphone"
         }
     }
 }
