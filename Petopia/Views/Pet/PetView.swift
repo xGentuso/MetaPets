@@ -35,7 +35,7 @@ struct PetView: View {
                         .frame(width: 220, height: 220) // Smaller circle
                     
                     // Pet image
-                    Image(viewModel.pet.type.rawValue)
+                    Image(viewModel.pet.type.baseImage)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 160, height: 160) // Smaller image

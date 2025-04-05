@@ -18,17 +18,27 @@ struct Petopia: App {
     @State private var isBackupSuccess = true
     
     init() {
-        // TESTING ONLY - Force reset onboarding flag
+        // For testing - Clear all data and force onboarding in debug mode
         #if DEBUG
-        UserDefaults.standard.set(false, forKey: "HasCompletedOnboarding")
+        AppDataManager.shared.clearAllData()
+        AppDataManager.shared.setOnboardingComplete(false)
+        UserDefaults.standard.synchronize()
+        print("DEBUG: Cleared all data and reset onboarding")
         #endif
         
         // Perform any necessary data migrations
         DataMigrationHelper.shared.performMigrationsIfNeeded()
         
-        // Initialize with saved pet data or create a new pet
-        let pet = AppDataManager.shared.loadPet()
-        _viewModel = StateObject(wrappedValue: PetViewModel(pet: pet))
+        // Initialize with saved pet data or wait for onboarding
+        if AppDataManager.shared.hasCompletedOnboarding(),
+           let pet = AppDataManager.shared.loadPet() {
+            print("DEBUG: Loading existing pet for completed onboarding")
+            _viewModel = StateObject(wrappedValue: PetViewModel(pet: pet))
+        } else {
+            print("DEBUG: Creating temporary pet for onboarding")
+            // Create a temporary pet that will be replaced after onboarding
+            _viewModel = StateObject(wrappedValue: PetViewModel())
+        }
     }
     
     var body: some Scene {
@@ -36,7 +46,7 @@ struct Petopia: App {
             ZStack {
                 #if DEBUG
                 // Debug logging
-                let _ = print("Onboarding complete? \(onboardingViewModel.onboardingComplete)")
+                let _ = print("DEBUG: Onboarding complete? \(onboardingViewModel.onboardingComplete)")
                 #endif
                 
                 if onboardingViewModel.onboardingComplete {
@@ -57,9 +67,27 @@ struct Petopia: App {
                         .opacity(showLaunchScreen ? 0 : 1)
                         .onChange(of: onboardingViewModel.onboardingComplete) { _, completed in
                             if completed {
-                                // Refresh the PetViewModel with the newly created pet
+                                print("DEBUG: Onboarding completed, loading new pet")
+                                // Force a reload of the saved pet data and create a new view model
                                 if let newPet = AppDataManager.shared.loadPet() {
+                                    print("DEBUG: Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
+                                    // Create a completely new view model instance
+                                    let newViewModel = PetViewModel(pet: newPet)
+                                    // Replace the entire view model's state
                                     viewModel.pet = newPet
+                                    viewModel.availableFood = newViewModel.availableFood
+                                    viewModel.availableGames = newViewModel.availableGames
+                                    viewModel.availableMedicine = newViewModel.availableMedicine
+                                    viewModel.availableAccessories = newViewModel.availableAccessories
+                                    viewModel.lastDailyBonusDate = newViewModel.lastDailyBonusDate
+                                    viewModel.dailyBonusStreak = newViewModel.dailyBonusStreak
+                                    
+                                    // Force a save to ensure everything is persisted
+                                    AppDataManager.shared.saveAllData(viewModel: viewModel)
+                                    UserDefaults.standard.synchronize()
+                                    print("DEBUG: Saved updated pet data after onboarding")
+                                } else {
+                                    print("DEBUG: Failed to load new pet after onboarding")
                                 }
                             }
                         }

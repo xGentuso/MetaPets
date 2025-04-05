@@ -8,9 +8,9 @@
 import Foundation
 
 enum PetType: String, CaseIterable, Codable {
-    case cat, dog, rabbit, dragon, robot
+    case cat, chicken, cow, pig, sheep
     
     var baseImage: String {
-        "pet_\(self.rawValue)"
+        self.rawValue
     }
 }

@@ -46,11 +46,20 @@ class AppDataManager {
     
     // Load pet data
     func loadPet() -> Pet? {
-        if let savedPetData = UserDefaults.standard.data(forKey: petKey),
-           let pet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
-            return pet
+        print("DEBUG: AppDataManager attempting to load pet")
+        if let savedPetData = UserDefaults.standard.data(forKey: petKey) {
+            do {
+                let pet = try JSONDecoder().decode(Pet.self, from: savedPetData)
+                print("DEBUG: AppDataManager successfully loaded pet: \(pet.name) the \(pet.type.rawValue)")
+                return pet
+            } catch {
+                print("DEBUG: ERROR - AppDataManager failed to decode pet: \(error)")
+                return nil
+            }
+        } else {
+            print("DEBUG: AppDataManager found no saved pet data")
+            return nil
         }
-        return nil
     }
     
     // Load streak data
@@ -74,6 +83,8 @@ class AppDataManager {
     
     // Create a new pet from onboarding
     func createNewPet(name: String, type: PetType) -> Pet {
+        print("DEBUG: AppDataManager creating new pet: \(name) the \(type.rawValue)")
+        
         let newPet = Pet(
             name: name,
             type: type,
@@ -83,6 +94,18 @@ class AppDataManager {
         // Save the new pet
         if let encoded = try? JSONEncoder().encode(newPet) {
             UserDefaults.standard.set(encoded, forKey: petKey)
+            UserDefaults.standard.synchronize()
+            print("DEBUG: AppDataManager saved new pet to UserDefaults")
+            
+            // Verify the save
+            if let savedData = UserDefaults.standard.data(forKey: petKey),
+               let savedPet = try? JSONDecoder().decode(Pet.self, from: savedData) {
+                print("DEBUG: AppDataManager verified save - loaded: \(savedPet.name) the \(savedPet.type.rawValue)")
+            } else {
+                print("DEBUG: ERROR - AppDataManager failed to verify pet save")
+            }
+        } else {
+            print("DEBUG: ERROR - AppDataManager failed to encode pet")
         }
         
         return newPet

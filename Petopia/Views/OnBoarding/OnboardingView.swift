@@ -147,7 +147,7 @@ struct OnboardingView: View {
                     .frame(width: 200, height: 200)
                 
                 if let petType = viewModel.selectedPetType {
-                    Image(petType.rawValue)
+                    Image(petType.baseImage)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 150, height: 150)
@@ -277,7 +277,7 @@ struct PetSelectionCard: View {
                         .fill(isSelected ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2))
                         .frame(width: 100, height: 100)
                     
-                    Image(petType.rawValue)
+                    Image(petType.baseImage)
                         .resizable()
                         .scaledToFit()
                         .foregroundColor(isSelected ? .blue : .gray)

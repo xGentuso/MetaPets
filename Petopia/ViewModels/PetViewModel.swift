@@ -26,12 +26,19 @@ class PetViewModel: ObservableObject {
         if let pet = pet {
             self.pet = pet
         } else {
-            // Create default pet
-            self.pet = Pet(
-                name: "Buddy",
-                type: .cat,
-                birthDate: Date()
-            )
+            // Try to load saved pet first
+            if let savedPet = AppDataManager.shared.loadPet() {
+                print("Loading saved pet: \(savedPet.name) the \(savedPet.type.rawValue)")
+                self.pet = savedPet
+            } else {
+                // Create an empty pet for onboarding
+                print("No saved pet found, creating empty pet for onboarding")
+                self.pet = Pet(
+                    name: "",
+                    type: .cat,  // This will be replaced during onboarding
+                    birthDate: Date()
+                )
+            }
         }
         
         self.lastUpdateTime = Date()
