@@ -25,32 +25,45 @@ class OnboardingViewModel: ObservableObject {
             return
         }
         
-        print("DEBUG: Creating new pet: \(petName) the \(petType.rawValue)")
+        print("DEBUG: CRITICAL: Creating new pet: \(petName) the \(petType.rawValue)")
         
-        // Create and save the new pet
-        let newPet = AppDataManager.shared.createNewPet(name: petName, type: petType)
-        print("DEBUG: New pet created: \(newPet.name) the \(newPet.type.rawValue)")
+        // First, clear any existing pet data
+        UserDefaults.standard.removeObject(forKey: "SavedPet")
+        UserDefaults.standard.synchronize()
         
-        // Force save to ensure it persists
+        // Create a completely fresh pet with the specified type
+        let newPet = Pet(
+            id: UUID(),
+            name: petName,
+            type: petType,
+            birthDate: Date(),
+            stage: .baby,
+            hunger: 70,
+            happiness: 70,
+            health: 100,
+            cleanliness: 70,
+            energy: 70,
+            currency: 50,
+            experience: 0,
+            level: 1,
+            accessories: []
+        )
+        
+        // Save directly to UserDefaults
         if let encoded = try? JSONEncoder().encode(newPet) {
             UserDefaults.standard.set(encoded, forKey: "SavedPet")
             UserDefaults.standard.synchronize()
             
-            // Double-check the save was successful
-            if let savedPetData = UserDefaults.standard.data(forKey: "SavedPet"),
-               let savedPet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
-                print("DEBUG: Verified pet save - loaded: \(savedPet.name) the \(savedPet.type.rawValue)")
-                
-                // Verify the type matches
-                if savedPet.type != petType {
-                    print("DEBUG: ERROR - Saved pet type (\(savedPet.type)) does not match selected type (\(petType))")
-                }
-            } else {
-                print("DEBUG: ERROR - Failed to verify pet save")
+            // Force verification
+            if let data = UserDefaults.standard.data(forKey: "SavedPet"),
+               let pet = try? JSONDecoder().decode(Pet.self, from: data) {
+                print("DEBUG: CRITICAL: Verification confirms pet type is: \(pet.type.rawValue)")
             }
-        } else {
-            print("DEBUG: ERROR - Failed to encode pet for saving")
         }
+        
+        // Also store the pet type separately for redundancy
+        UserDefaults.standard.set(petType.rawValue, forKey: "SelectedPetType")
+        UserDefaults.standard.synchronize()
     }
     
     // Mark onboarding as complete
@@ -64,7 +77,7 @@ class OnboardingViewModel: ObservableObject {
             
             // Verify the pet was saved correctly
             if let savedPet = AppDataManager.shared.loadPet() {
-                print("DEBUG: Final verification - loaded pet: \(savedPet.name) the \(savedPet.type.rawValue)")
+                print("DEBUG: Final verification - loaded: \(savedPet.name) the \(savedPet.type.rawValue)")
             } else {
                 print("DEBUG: ERROR - Failed to load pet in final verification")
             }

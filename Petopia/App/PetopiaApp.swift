@@ -16,10 +16,15 @@ struct Petopia: App {
     @State private var showingBackupRestoreAlert = false
     @State private var backupMessage = ""
     @State private var isBackupSuccess = true
+    @State private var appRefreshID = UUID() // Add state for forcing app refresh
     
     init() {
         // For testing - Clear all data and force onboarding in debug mode
         #if DEBUG
+        // Clear all UserDefaults data
+        if let domain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: domain)
+        }
         AppDataManager.shared.clearAllData()
         AppDataManager.shared.setOnboardingComplete(false)
         UserDefaults.standard.synchronize()
@@ -47,9 +52,10 @@ struct Petopia: App {
                 #if DEBUG
                 // Debug logging
                 let _ = print("DEBUG: Onboarding complete? \(onboardingViewModel.onboardingComplete)")
+                let _ = print("DEBUG: AppDataManager onboarding status: \(AppDataManager.shared.hasCompletedOnboarding())")
                 #endif
                 
-                if onboardingViewModel.onboardingComplete {
+                if AppDataManager.shared.hasCompletedOnboarding() {
                     // Regular app flow
                     ContentView(viewModel: viewModel)
                         .opacity(showLaunchScreen ? 0 : 1)
@@ -61,33 +67,51 @@ struct Petopia: App {
                             }
                             return .systemAction
                         })
+                        // Force view refresh with ID
+                        .id("main-view-\(appRefreshID)")
                 } else {
                     // Onboarding flow
                     OnboardingView(viewModel: onboardingViewModel)
                         .opacity(showLaunchScreen ? 0 : 1)
                         .onChange(of: onboardingViewModel.onboardingComplete) { _, completed in
                             if completed {
-                                print("DEBUG: Onboarding completed, loading new pet")
-                                // Force a reload of the saved pet data and create a new view model
+                                print("DEBUG: CRITICAL: ************* ONBOARDING COMPLETED *************")
+                                
+                                // Ensure we're really marking onboarding as complete
+                                AppDataManager.shared.setOnboardingComplete(true)
+                                UserDefaults.standard.synchronize()
+                                
+                                // Force a reload of the saved pet data
                                 if let newPet = AppDataManager.shared.loadPet() {
-                                    print("DEBUG: Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
-                                    // Create a completely new view model instance
-                                    let newViewModel = PetViewModel(pet: newPet)
-                                    // Replace the entire view model's state
-                                    viewModel.pet = newPet
-                                    viewModel.availableFood = newViewModel.availableFood
-                                    viewModel.availableGames = newViewModel.availableGames
-                                    viewModel.availableMedicine = newViewModel.availableMedicine
-                                    viewModel.availableAccessories = newViewModel.availableAccessories
-                                    viewModel.lastDailyBonusDate = newViewModel.lastDailyBonusDate
-                                    viewModel.dailyBonusStreak = newViewModel.dailyBonusStreak
+                                    print("DEBUG: CRITICAL: Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
                                     
-                                    // Force a save to ensure everything is persisted
-                                    AppDataManager.shared.saveAllData(viewModel: viewModel)
+                                    // Completely replace the pet type directly in UserDefaults
+                                    UserDefaults.standard.removeObject(forKey: "SavedPet")
                                     UserDefaults.standard.synchronize()
-                                    print("DEBUG: Saved updated pet data after onboarding")
+                                    
+                                    // Re-save the pet with forced type
+                                    do {
+                                        let encoder = JSONEncoder()
+                                        let petData = try encoder.encode(newPet)
+                                        UserDefaults.standard.set(petData, forKey: "SavedPet")
+                                        UserDefaults.standard.set(newPet.type.rawValue, forKey: "SelectedPetType")
+                                        UserDefaults.standard.synchronize()
+                                        print("DEBUG: CRITICAL: Re-saved pet with enforced type: \(newPet.type.rawValue)")
+                                    } catch {
+                                        print("DEBUG: CRITICAL: Error encoding pet: \(error)")
+                                    }
+                                    
+                                    // Create a new view model with the loaded pet
+                                    let newViewModel = PetViewModel(pet: newPet)
+                                    viewModel.updateWithNewPet(newPet)
+                                    
+                                    // Force a view refresh by updating refresh ID
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        print("DEBUG: CRITICAL: ************* REFRESHING APP VIEWS *************")
+                                        appRefreshID = UUID()
+                                    }
                                 } else {
-                                    print("DEBUG: Failed to load new pet after onboarding")
+                                    print("DEBUG: CRITICAL: Failed to load new pet after onboarding")
                                 }
                             }
                         }

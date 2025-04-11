@@ -26,6 +26,15 @@ struct ContentView: View {
                                 .foregroundColor(.blue)
                         }
                     )
+                    .onAppear {
+                        // Gentle refresh of pet type
+                        print("DEBUG: ContentView PetView appeared - Pet type: \(viewModel.pet.type.rawValue)")
+                        
+                        // Only force refresh if necessary
+                        if viewModel.pet.type.rawValue != UserDefaults.standard.string(forKey: "SelectedPetType") {
+                            viewModel.forceRefresh()
+                        }
+                    }
             }
             .tabItem {
                 Label("Pet", systemImage: "pawprint.fill")

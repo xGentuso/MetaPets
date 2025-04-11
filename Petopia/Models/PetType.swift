@@ -11,6 +11,6 @@ enum PetType: String, CaseIterable, Codable {
     case cat, chicken, cow, pig, sheep
     
     var baseImage: String {
-        self.rawValue
+        return self.rawValue
     }
 }

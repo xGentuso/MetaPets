@@ -34,20 +34,17 @@ struct PetView: View {
                         .fill(backgroundColorForStatus)
                         .frame(width: 220, height: 220) // Smaller circle
                     
-                    // Pet image
-                    Image(viewModel.pet.type.baseImage)
+                    // Fixed pet image with separate animation
+                    let petType = viewModel.pet.type.rawValue
+                    
+                    // The image itself - not part of the animation modifier chain
+                    Image(petType)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 160, height: 160) // Smaller image
-                        .offset(y: isAnimating ? -8 : 8) // Smaller animation offset
-                        .animation(
-                            Animation.easeInOut(duration: animationDuration)
-                                .repeatForever(autoreverses: true),
-                            value: isAnimating
-                        )
-                        .onAppear {
-                            isAnimating = true
-                        }
+                        .frame(width: 160, height: 160)
+                        // Only animate the offset, not the whole image
+                        .offset(y: isAnimating ? -8 : 8)
+                        .id("pet-image-fixed-\(petType)") // Fixed ID tied to pet type
                     
                     // Status indicator
                     Text(viewModel.pet.currentStatus.emoji)
@@ -55,6 +52,18 @@ struct PetView: View {
                         .offset(x: 65, y: -65) // Adjusted position
                 }
                 .padding(.vertical, 5) // Reduced padding
+                .onAppear {
+                    // Start animation after a brief delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(
+                            Animation.easeInOut(duration: animationDuration)
+                                .repeatForever(autoreverses: true)
+                        ) {
+                            isAnimating = true
+                        }
+                    }
+                    print("DEBUG: PetView appeared with pet type: \(viewModel.pet.type.rawValue)")
+                }
                 
                 // Quick Tip based on pet status
                 if let tip = quickTip() {

@@ -47,6 +47,7 @@ class AppDataManager {
     // Load pet data
     func loadPet() -> Pet? {
         print("DEBUG: AppDataManager attempting to load pet")
+        
         if let savedPetData = UserDefaults.standard.data(forKey: petKey) {
             do {
                 let pet = try JSONDecoder().decode(Pet.self, from: savedPetData)
@@ -54,6 +55,14 @@ class AppDataManager {
                 return pet
             } catch {
                 print("DEBUG: ERROR - AppDataManager failed to decode pet: \(error)")
+                
+                // In case of decoding error, try to recover what we can
+                print("DEBUG: Attempting data recovery, raw data: \(savedPetData.count) bytes")
+                
+                // Clear data in case of corruption
+                UserDefaults.standard.removeObject(forKey: petKey)
+                UserDefaults.standard.synchronize()
+                
                 return nil
             }
         } else {
@@ -85,27 +94,38 @@ class AppDataManager {
     func createNewPet(name: String, type: PetType) -> Pet {
         print("DEBUG: AppDataManager creating new pet: \(name) the \(type.rawValue)")
         
+        // Create a completely fresh pet with the specified type
         let newPet = Pet(
+            id: UUID(), // Force a new ID
             name: name,
             type: type,
-            birthDate: Date()
+            birthDate: Date(),
+            stage: .baby,
+            hunger: 70,
+            happiness: 70,
+            health: 100,
+            cleanliness: 70,
+            energy: 70,
+            currency: 50,
+            experience: 0,
+            level: 1,
+            accessories: []
         )
         
-        // Save the new pet
-        if let encoded = try? JSONEncoder().encode(newPet) {
+        // Save the pet directly to UserDefaults
+        do {
+            let encoded = try JSONEncoder().encode(newPet)
             UserDefaults.standard.set(encoded, forKey: petKey)
             UserDefaults.standard.synchronize()
-            print("DEBUG: AppDataManager saved new pet to UserDefaults")
+            print("DEBUG: AppDataManager directly saved new pet to UserDefaults")
             
-            // Verify the save
-            if let savedData = UserDefaults.standard.data(forKey: petKey),
-               let savedPet = try? JSONDecoder().decode(Pet.self, from: savedData) {
-                print("DEBUG: AppDataManager verified save - loaded: \(savedPet.name) the \(savedPet.type.rawValue)")
-            } else {
-                print("DEBUG: ERROR - AppDataManager failed to verify pet save")
+            // Verify the save immediately
+            if let data = UserDefaults.standard.data(forKey: petKey),
+               let pet = try? JSONDecoder().decode(Pet.self, from: data) {
+                print("DEBUG: VERIFICATION - Pet type is: \(pet.type.rawValue)")
             }
-        } else {
-            print("DEBUG: ERROR - AppDataManager failed to encode pet")
+        } catch {
+            print("DEBUG: CRITICAL ERROR - Failed to encode pet: \(error)")
         }
         
         return newPet

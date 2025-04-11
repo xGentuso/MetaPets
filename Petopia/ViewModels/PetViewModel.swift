@@ -22,39 +22,104 @@ class PetViewModel: ObservableObject {
     private var lastUpdateTime: Date
     private var timer: AnyCancellable?
     
-    init(pet: Pet? = nil) {
-        if let pet = pet {
-            self.pet = pet
-        } else {
-            // Try to load saved pet first
-            if let savedPet = AppDataManager.shared.loadPet() {
-                print("Loading saved pet: \(savedPet.name) the \(savedPet.type.rawValue)")
-                self.pet = savedPet
-            } else {
-                // Create an empty pet for onboarding
-                print("No saved pet found, creating empty pet for onboarding")
-                self.pet = Pet(
-                    name: "",
-                    type: .cat,  // This will be replaced during onboarding
-                    birthDate: Date()
-                )
-            }
+    // Add a static helper method to get the selected pet type
+    static func getStoredPetType() -> PetType {
+        // First try to get from the separate key
+        if let typeString = UserDefaults.standard.string(forKey: "SelectedPetType"),
+           let type = PetType(rawValue: typeString) {
+            print("DEBUG: CRITICAL: Retrieved pet type from backup: \(type.rawValue)")
+            return type
         }
         
-        self.lastUpdateTime = Date()
+        // Then try to load from the pet object
+        if let savedPetData = UserDefaults.standard.data(forKey: "SavedPet"),
+           let savedPet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
+            print("DEBUG: CRITICAL: Retrieved pet type from pet data: \(savedPet.type.rawValue)")
+            return savedPet.type
+        }
         
-        // Load items
-        loadItems()
-        
-        // Load currency data
-        loadCurrencyData()
-        
-        // Setup timer to update pet stats periodically
+        // Fallback to cat (default)
+        print("DEBUG: CRITICAL: Falling back to default pet type: cat")
+        return .cat
+    }
+    
+    // Override the setupTimer method to add diagnostics
+    private func setupTimer() {
+        print("DEBUG: CRITICAL: Setting up pet timer for pet type: \(pet.type.rawValue)")
         timer = Timer.publish(every: 60, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 self?.updatePetWithTimeElapsed()
             }
+    }
+    
+    // Add a diagnostic method to verify pet type
+    private func verifyPetType() {
+        let petType = pet.type
+        print("DEBUG: CRITICAL: ************* PET TYPE VERIFICATION *************")
+        print("DEBUG: CRITICAL: Current pet type in view model: \(petType.rawValue)")
+        
+        // Verify against saved values
+        if let typeString = UserDefaults.standard.string(forKey: "SelectedPetType") {
+            print("DEBUG: CRITICAL: Pet type in UserDefaults: \(typeString)")
+            if typeString != petType.rawValue {
+                print("DEBUG: CRITICAL: TYPE MISMATCH DETECTED! Fixing...")
+                if let type = PetType(rawValue: typeString) {
+                    pet.type = type
+                    print("DEBUG: CRITICAL: Updated pet type to: \(pet.type.rawValue)")
+                }
+            }
+        }
+        
+        // Verify against saved pet data
+        if let savedPetData = UserDefaults.standard.data(forKey: "SavedPet"),
+           let savedPet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
+            print("DEBUG: CRITICAL: Pet type in saved pet data: \(savedPet.type.rawValue)")
+            if savedPet.type.rawValue != petType.rawValue {
+                print("DEBUG: CRITICAL: SAVED PET TYPE MISMATCH! Fixing...")
+                pet.type = savedPet.type
+                print("DEBUG: CRITICAL: Updated pet type to: \(pet.type.rawValue)")
+            }
+        }
+    }
+    
+    init(pet: Pet? = nil) {
+        print("DEBUG: CRITICAL: ************* PetViewModel init starting *************")
+        
+        // Initialize lastUpdateTime first
+        self.lastUpdateTime = Date()
+        
+        // Initialize pet before any other operations
+        if let providedPet = pet {
+            print("DEBUG: CRITICAL: Using provided pet with type: \(providedPet.type.rawValue)")
+            self.pet = providedPet
+        } else if let savedPet = AppDataManager.shared.loadPet() {
+            print("DEBUG: CRITICAL: Loading saved pet: \(savedPet.name) the \(savedPet.type.rawValue)")
+            self.pet = savedPet
+        } else {
+            print("DEBUG: CRITICAL: Creating default pet")
+            self.pet = Pet(
+                name: "Buddy",
+                type: .cat,
+                birthDate: Date()
+            )
+        }
+        
+        // Verify the pet type is correct
+        verifyPetType()
+        
+        // Now that pet is initialized, we can perform other setup
+        loadItems()
+        loadCurrencyData()
+        setupTimer()
+        
+        print("DEBUG: CRITICAL: PetViewModel initialization complete with pet type: \(self.pet.type.rawValue)")
+        
+        // Force another verification
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.verifyPetType()
+            self?.objectWillChange.send()
+        }
     }
     
     deinit {
@@ -145,6 +210,37 @@ class PetViewModel: ObservableObject {
         
         // Track evolution achievement when the stage changes
         AchievementManager.shared.trackEvolution(stage: pet.stage)
+    }
+    
+    // Method to update the pet with a new pet
+    func updateWithNewPet(_ newPet: Pet) {
+        print("DEBUG: CRITICAL: Updating pet from \(pet.type.rawValue) to \(newPet.type.rawValue)")
+        
+        // Clear existing state
+        timer?.cancel()
+        
+        // Replace the pet
+        self.pet = newPet
+        
+        // Reset time tracking
+        self.lastUpdateTime = Date()
+        
+        // Reset pet stats
+        self.pet.happiness = 100
+        self.pet.hunger = 100
+        self.pet.energy = 100
+        
+        // Reload all items
+        loadItems()
+        loadCurrencyData()
+        
+        // Restart timer
+        setupTimer()
+        
+        // Save the updated pet to ensure it's persisted
+        AppDataManager.shared.saveAllData(viewModel: self)
+        
+        print("DEBUG: CRITICAL: PetViewModel updated with new pet: \(newPet.name) the \(newPet.type.rawValue)")
     }
     
     // Currency methods
@@ -408,5 +504,81 @@ class PetViewModel: ObservableObject {
     private func autoSave() {
         // Use AppDataManager to save all data
         AppDataManager.shared.saveAllData(viewModel: self)
+    }
+    
+    // Reset the view model state with a new pet
+    func resetStateWith(newPet: Pet) {
+        print("DEBUG: CRITICAL: Resetting view model with new pet: \(newPet.name) the \(newPet.type.rawValue)")
+        
+        // Cancel any existing timers
+        timer?.cancel()
+        
+        // Update the pet
+        self.pet = newPet
+        
+        // Reset time tracking
+        self.lastUpdateTime = Date()
+        
+        // Reset all stats to initial values
+        self.pet.happiness = 100
+        self.pet.hunger = 100
+        self.pet.energy = 100
+        self.pet.cleanliness = 100
+        self.pet.health = 100
+        
+        // Reload all items and data
+        loadItems()
+        loadCurrencyData()
+        
+        // Restart timer
+        setupTimer()
+        
+        // Save the updated state
+        AppDataManager.shared.saveAllData(viewModel: self)
+        UserDefaults.standard.synchronize()
+        
+        print("DEBUG: CRITICAL: View model reset complete with pet type: \(newPet.type.rawValue)")
+    }
+    
+    // Method to clear all app data
+    func clearAllData() {
+        // Clear all UserDefaults data
+        let domain = Bundle.main.bundleIdentifier!
+        UserDefaults.standard.removePersistentDomain(forName: domain)
+        UserDefaults.standard.synchronize()
+        
+        // Reset the pet to default state
+        self.pet = Pet(
+            name: "",
+            type: .cat,
+            birthDate: Date()
+        )
+        
+        // Reset all other properties
+        self.lastUpdateTime = Date()
+        self.lastDailyBonusDate = nil
+        self.dailyBonusStreak = 0
+        
+        // Reload items
+        loadItems()
+        
+        print("DEBUG: All app data has been cleared")
+    }
+    
+    // Force refresh to ensure pet type is correctly applied
+    func forceRefresh() {
+        print("DEBUG: CRITICAL: Refreshing pet view model")
+        
+        // Get the correct pet type from UserDefaults
+        if let typeString = UserDefaults.standard.string(forKey: "SelectedPetType"),
+           let storedType = PetType(rawValue: typeString),
+           pet.type != storedType {
+            
+            print("DEBUG: CRITICAL: Updating pet type from \(pet.type.rawValue) to \(storedType.rawValue)")
+            pet.type = storedType
+            
+            // Simple notification of change
+            objectWillChange.send()
+        }
     }
 }
