@@ -16,6 +16,38 @@ struct MinigamesListView: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State private var refreshID = UUID()
     
+    // Pet-specific theme color
+    private var themeColor: Color {
+        switch viewModel.pet.type {
+        case .cat:
+            return .blue
+        case .chicken:
+            return .yellow
+        case .cow:
+            return .brown
+        case .pig:
+            return .pink
+        case .sheep:
+            return .mint
+        }
+    }
+    
+    // Pet-specific title
+    private var navigationTitle: String {
+        switch viewModel.pet.type {
+        case .cat:
+            return "Cat Games"
+        case .chicken:
+            return "Chicken Games"
+        case .cow:
+            return "Cow Games"
+        case .pig:
+            return "Pig Games"
+        case .sheep:
+            return "Sheep Games"
+        }
+    }
+    
     var body: some View {
         NavigationView {
             VStack {
@@ -29,12 +61,12 @@ struct MinigamesListView: View {
                 // Game type filter
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        FilterButton(title: "All", isSelected: selectedGameType == nil) {
+                        FilterButton(title: "All", isSelected: selectedGameType == nil, themeColor: themeColor) {
                             selectedGameType = nil
                         }
                         
                         ForEach(MinigameType.allCases, id: \.self) { type in
-                            FilterButton(title: type.description, isSelected: selectedGameType == type) {
+                            FilterButton(title: type.description, isSelected: selectedGameType == type, themeColor: themeColor) {
                                 selectedGameType = type
                             }
                         }
@@ -50,14 +82,14 @@ struct MinigamesListView: View {
                             selectedGame = game
                             showGameView = true
                         } label: {
-                            MinigameCell(viewModel: viewModel, game: game)
+                            MinigameCell(viewModel: viewModel, game: game, themeColor: themeColor)
                                 .id("\(refreshID)-\(game.id)")
                         }
                         .disabled(!viewModel.canPlayMinigame(game))
                     }
                 }
             }
-            .navigationTitle("Minigames")
+            .navigationTitle(navigationTitle)
             .onReceive(timer) { _ in
                 // Refresh view to update cooldown timers
                 refreshID = UUID()
@@ -95,6 +127,7 @@ struct MinigamesListView: View {
 struct FilterButton: View {
     let title: String
     let isSelected: Bool
+    let themeColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -105,7 +138,7 @@ struct FilterButton: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.blue : Color.gray.opacity(0.2))
+                        .fill(isSelected ? themeColor : Color.gray.opacity(0.2))
                 )
                 .foregroundColor(isSelected ? .white : .primary)
         }
@@ -115,13 +148,14 @@ struct FilterButton: View {
 struct MinigameCell: View {
     let viewModel: PetViewModel
     let game: Minigame
+    let themeColor: Color
     
     var body: some View {
         HStack {
             Image(systemName: "gamecontroller.fill")
-                .foregroundColor(.purple)
+                .foregroundColor(themeColor)
                 .frame(width: 40, height: 40)
-                .background(Color.purple.opacity(0.2))
+                .background(themeColor.opacity(0.2))
                 .cornerRadius(8)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -149,7 +183,7 @@ struct MinigameCell: View {
                     if viewModel.canPlayMinigame(game) {
                         Text("Reward: \(game.possibleReward) coins")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(themeColor)
                     } else {
                         Text(formatTimeRemaining(viewModel.timeUntilMinigameAvailable(game)))
                             .font(.caption)

@@ -19,6 +19,12 @@ struct PlayTabView: View {
             }
             .pickerStyle(SegmentedPickerStyle())
             .padding()
+            .onChange(of: selection) { newValue in
+                if newValue == 1 {
+                    // Refresh minigames when switching to the minigames tab
+                    viewModel.refreshMinigames()
+                }
+            }
             
             if selection == 0 {
                 // Standard pet play activities

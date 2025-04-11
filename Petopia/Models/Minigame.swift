@@ -16,6 +16,7 @@ struct Minigame: Identifiable {
     var rewardAmount: Int
     var imageName: String
     var cooldownMinutes: Int
+    var petType: PetType
     
     // Computed property to determine rewards based on difficulty
     var possibleReward: Int {

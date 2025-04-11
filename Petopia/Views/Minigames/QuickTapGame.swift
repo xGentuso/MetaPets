@@ -16,9 +16,14 @@ struct TapItem: Identifiable {
     var appearanceTime: Date
     var isTapped = false
     var lifespan: Double // seconds the item will be visible
+    var velocity: CGFloat = 0 // For falling items (used in catch games)
+    var acceleration: CGFloat = 0 // For falling items (used in catch games)
+    var opacity: Double = 1.0
+    var isFadingOut = false
     
     var isActive: Bool {
-        !isTapped && Date().timeIntervalSince(appearanceTime) < lifespan
+        // Item remains active even when fading out, until explicitly tapped
+        !isTapped
     }
 }
 
@@ -40,6 +45,42 @@ struct QuickTapGame: View {
     
     private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
     private let gameTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    
+    // Determine if this is a catch game (with falling items) or a pop game (with stationary items)
+    private var isCatchGame: Bool {
+        return game.name.contains("Catch")
+    }
+    
+    // Pet-specific properties
+    private var petEmojis: [String] {
+        switch viewModel.pet.type {
+        case .cat:
+            return ["🐟", "🥛", "🐭", "🧶", "🐦", "🥩", "🐱", "🐾"]
+        case .chicken:
+            return ["🌾", "🌽", "🌱", "🥜", "🐛", "🦗", "🪱", "🐔"]
+        case .cow:
+            return ["🌱", "🍎", "🌽", "🥕", "🥬", "🥦", "🌿", "🐄"]
+        case .pig:
+            return ["🥔", "🥕", "🌽", "🍎", "🥗", "🍄", "🐖", "🥜"]
+        case .sheep:
+            return ["🌱", "🍀", "☘️", "🌿", "🥬", "🧶", "🐑", "🌾"]
+        }
+    }
+    
+    private var themeColor: Color {
+        switch viewModel.pet.type {
+        case .cat:
+            return .blue
+        case .chicken:
+            return .yellow
+        case .cow:
+            return .brown
+        case .pig:
+            return .pink
+        case .sheep:
+            return .mint
+        }
+    }
     
     enum GameState {
         case notStarted, playing, won, lost
@@ -94,27 +135,40 @@ struct QuickTapGame: View {
             }
             .padding()
             
-            // Game area
+            // Game area with reduced height
             GeometryReader { geometry in
                 ZStack {
                     Rectangle()
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(themeColor.opacity(0.1))
                         .overlay(
                             Rectangle()
-                                .stroke(Color.blue, lineWidth: 2)
+                                .stroke(themeColor, lineWidth: 2)
                                 .opacity(0.5)
                         )
                     
-                    ForEach(items.filter { $0.isActive }) { item in
-                        TapItemView(item: item)
-                            .position(item.position)
-                            .onTapGesture {
-                                tapItem(with: item.id)
-                            }
+                    // Items
+                    ForEach(items.indices, id: \.self) { index in
+                        if !items[index].isTapped {
+                            Text(items[index].emoji)
+                                .font(.system(size: items[index].size * 0.7))
+                                .frame(width: items[index].size, height: items[index].size)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.8))
+                                        .shadow(radius: 2)
+                                )
+                                .position(items[index].position)
+                                .opacity(items[index].opacity)
+                                .onTapGesture {
+                                    tapItem(with: items[index].id)
+                                }
+                        }
                     }
                 }
                 .onAppear {
+                    // Use the full geometry size for game area
                     gameAreaSize = geometry.size
+                    print("Game area size: \(gameAreaSize.width) x \(gameAreaSize.height)")
                 }
             }
             .padding()
@@ -216,29 +270,70 @@ struct QuickTapGame: View {
         let sizeRange: ClosedRange<CGFloat> = (game.difficulty == .hard) ? 40...60 : 50...80
         let size = CGFloat.random(in: sizeRange)
         
-        let maxX = gameAreaSize.width - size
-        let maxY = gameAreaSize.height - size
+        // Calculate safe area to ensure items spawn within the visible game area
+        let margin: CGFloat = size * 0.6 // Use 60% of item size as margin
+        let minX = margin
+        let maxX = gameAreaSize.width - margin
         
-        let position = CGPoint(
-            x: CGFloat.random(in: size/2...maxX-size/2),
-            y: CGFloat.random(in: size/2...maxY-size/2)
-        )
+        var position: CGPoint
+        var velocity: CGFloat = 0
+        var acceleration: CGFloat = 0
         
-        // Select emoji
-        let emojis = ["🍖", "🍗", "🦴", "🍪", "🥩", "🥕", "🍎", "🍌"]
-        let selectedEmoji = emojis.randomElement() ?? "🍖"
+        if isCatchGame {
+            // For catch games, items spawn at the top within the game boundaries
+            position = CGPoint(
+                x: CGFloat.random(in: minX...maxX),
+                y: margin // Start just inside the top edge
+            )
+            
+            // Debug
+            print("Spawned item at \(position.x), \(position.y) with game area \(gameAreaSize.width) x \(gameAreaSize.height)")
+            
+            // Adjust velocity based on current streak and score
+            // Higher streak/score = faster items
+            let streakMultiplier = min(1.0 + (Double(streak) * 0.1), 2.0) // Up to 2x speed at streak 10
+            let scoreMultiplier = min(1.0 + (Double(score) / 100.0), 2.5) // Gradual increase with score
+            
+            // Base velocity increases with difficulty
+            let baseVelocity: CGFloat = game.difficulty == .easy ? 2.0 : (game.difficulty == .medium ? 3.0 : 4.0)
+            velocity = baseVelocity * CGFloat(streakMultiplier) * CGFloat(scoreMultiplier)
+            
+            // Acceleration stays consistent to maintain predictable physics
+            let baseAcceleration: CGFloat = game.difficulty == .easy ? 0.3 : (game.difficulty == .medium ? 0.4 : 0.5)
+            acceleration = baseAcceleration
+        } else {
+            // For pop games, items appear randomly in the game area
+            let minY = margin
+            let maxY = gameAreaSize.height - margin
+            position = CGPoint(
+                x: CGFloat.random(in: minX...maxX),
+                y: CGFloat.random(in: minY...maxY)
+            )
+        }
         
-        // Points based on size (smaller items worth more)
+        // Select emoji from pet-specific list, filtered to avoid cow emojis in Apple Catch
+        var filteredEmojis = petEmojis
+        if game.name.contains("Apple") {
+            // Remove cow emoji from Apple Catch game
+            filteredEmojis = petEmojis.filter { $0 != "🐄" }
+        }
+        let selectedEmoji = filteredEmojis.randomElement() ?? filteredEmojis[0]
+        
+        // Points based on size and speed (smaller and faster items worth more)
         let basePoints = 10
         let sizeMultiplier = Int((80 - size) / 5)
-        let points = basePoints + sizeMultiplier
+        let velocityMultiplier = Int(velocity * 2)
+        let points = basePoints + sizeMultiplier + velocityMultiplier
         
-        // Lifespan based on difficulty
+        // Lifespan based on estimated fall time (shorter than before for faster gameplay)
         let lifespan: Double
-        switch game.difficulty {
-        case .easy: lifespan = 3.0
-        case .medium: lifespan = 2.5
-        case .hard: lifespan = 2.0
+        if isCatchGame {
+            // Use faster lifespan to keep the game challenging
+            let estimatedFallTime = gameAreaSize.height / (velocity + (acceleration * 5))
+            lifespan = Double(estimatedFallTime) * 1.1 // Just enough time to fall through
+        } else {
+            // Pop games get shorter lifespans for challenge
+            lifespan = game.difficulty == .easy ? 2.5 : (game.difficulty == .medium ? 2.0 : 1.5)
         }
         
         // Create the item
@@ -248,48 +343,146 @@ struct QuickTapGame: View {
             emoji: selectedEmoji,
             points: points,
             appearanceTime: Date(),
-            lifespan: lifespan
+            lifespan: lifespan,
+            velocity: velocity,
+            acceleration: acceleration
         )
         
         items.append(item)
     }
     
     private func updateItems() {
-        // Check for expired items
+        // Check for expired items and update positions for falling items
         var itemsExpired = false
         
         for index in items.indices {
-            if !items[index].isTapped && !items[index].isActive {
+            if isCatchGame && !items[index].isTapped && items[index].isActive {
+                // Update position for falling items in catch games
+                var newPosition = items[index].position
+                
+                // Update velocity with acceleration
+                items[index].velocity += items[index].acceleration * 0.1 // 0.1 is the timer interval
+                
+                // Update y position based on velocity
+                newPosition.y += items[index].velocity
+                
+                // Calculate the bottom edge of the item
+                let itemBottomEdge = newPosition.y + items[index].size
+
+                // ABSOLUTE FINAL FIX
+                
+                // Hardcoded value significantly increased to ensure items reach the bottom
+                let fadeStartPoint: CGFloat = 580
+                
+                if !items[index].isFadingOut && itemBottomEdge >= fadeStartPoint {
+                    // Only start fading when the item has reached our known bottom boundary value
+                    items[index].isFadingOut = true
+                    
+                    // Use a longer fade animation (1.5 seconds) to ensure it's more visible
+                    withAnimation(.easeOut(duration: 1.5)) {
+                        items[index].opacity = 0.0
+                    }
+                    
+                    print("FADE START: y=\(newPosition.y), bottom edge=\(itemBottomEdge), hardcoded fade point=\(fadeStartPoint)")
+                }
+                
+                // Always update position to continue movement
+                items[index].position = newPosition
+                
+                // Only remove the item after it's been fading for a while and has moved past visible area
+                // Wait until the animation is completely finished before removing the item
+                // This ensures the full fade animation is visible
+                if items[index].isFadingOut && (Date().timeIntervalSince(items[index].appearanceTime) > items[index].lifespan + 1.5) {
+                    // Only remove when animation is complete
+                    items[index].isTapped = true
+                    streak = max(0, streak - 1)
+                    missedCount += 1
+                    itemsExpired = true
+                    print("REMOVED: item at y=\(newPosition.y), animation complete")
+                }
+            } else if !items[index].isTapped && !items[index].isActive {
                 // Item expired without being tapped
                 items[index].isTapped = true
-                streak = 0
+                streak = max(0, streak - 1) // Reduce streak instead of resetting
                 missedCount += 1
                 itemsExpired = true
             }
         }
         
-        // Clean up tapped or expired items periodically
-        if items.count > 20 {
-            items.removeAll { !$0.isActive }
+        // Clean up only items that have been explicitly tapped or fully faded out
+        items.removeAll { item in 
+            // Remove if explicitly tapped by user
+            if item.isTapped {
+                return true
+            }
+            
+            // For non-fading items, remove if they've expired normally
+            if !item.isFadingOut && Date().timeIntervalSince(item.appearanceTime) > item.lifespan {
+                return true
+            }
+            
+            // For fading items, only remove after animation is complete (when opacity is near 0)
+            if item.isFadingOut && item.opacity < 0.1 {
+                return true
+            }
+            
+            return false
         }
         
         // Penalize score for expired items
         if itemsExpired && score > 0 {
-            score = max(0, score - 5)
+            score = max(0, score - 3)
+        }
+        
+        // Dynamic spawn logic based on player's performance
+        if isCatchGame && gameState == .playing {
+            // Calculate how many items should be active based on streak and score
+            let baseItemCount = 2 // Baseline item count
+            let streakBonus = min(streak / 2, 3) // +1 item per 2 streak, max +3
+            let scoreBonus = min(score / 50, 3) // +1 item per 50 points, max +3
+            
+            let targetItemCount = baseItemCount + streakBonus + scoreBonus
+            let activeItemCount = items.filter({ !$0.isTapped && $0.isActive }).count
+            
+            // Spawn new items if we're below target count
+            if activeItemCount < targetItemCount {
+                spawnItem()
+            }
         }
     }
     
     private func tapItem(with id: UUID) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         
-        if items[index].isActive && !items[index].isTapped {
+        // Allow tapping items that are fading out but not yet fully tapped
+        if !items[index].isTapped {
             items[index].isTapped = true
             
             // Update score and streak
             streak += 1
+            
+            // Points calculation with increasing rewards for higher streaks
             let streakMultiplier = min(3, streak) // Cap multiplier at 3x
             let pointsEarned = items[index].points * streakMultiplier
-            score += pointsEarned
+            
+            // Add visual feedback with animation
+            withAnimation(.easeOut(duration: 0.2)) {
+                score += pointsEarned
+            }
+            
+            // Show tap feedback visually
+            withAnimation(.easeOut(duration: 0.3)) {
+                items[index].opacity = 0.0 // Fade out immediately when tapped
+            }
+            
+            // Spawn a new item on successful tap for more dynamic gameplay
+            if isCatchGame && Double.random(in: 0...1) < 0.7 { // 70% chance
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    spawnItem()
+                }
+            }
+            
+            print("TAPPED: item at position y=\(items[index].position.y)")
         }
     }
     
@@ -341,6 +534,8 @@ struct TapItemView: View {
                     .fill(Color.white.opacity(0.8))
                     .shadow(radius: 2)
             )
+            .transition(.scale)
+            .animation(.easeOut(duration: 0.2), value: item.size)
     }
 }
 
@@ -355,7 +550,8 @@ struct QuickTapGame_Previews: PreviewProvider {
                 type: .quickTap,
                 rewardAmount: 12,
                 imageName: "game_tap",
-                cooldownMinutes: 20
+                cooldownMinutes: 20,
+                petType: .cat
             )
         )
     }

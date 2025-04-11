@@ -25,8 +25,53 @@ struct PatternGame: View {
         case notStarted, showing, input, correct, incorrect, gameOver
     }
     
-    let colors: [Color] = [.red, .green, .blue, .yellow]
-    let sounds = ["note1", "note2", "note3", "note4"]
+    // Pet-specific game colors
+    var colors: [Color] {
+        switch viewModel.pet.type {
+        case .cat:
+            return [.blue, .teal, .purple, .pink]
+        case .chicken:
+            return [.yellow, .orange, .red, .green]
+        case .cow:
+            return [.brown, .black, .white, .gray]
+        case .pig:
+            return [.pink, .red, .brown, .orange]
+        case .sheep:
+            return [.mint, .white, .gray, .black]
+        }
+    }
+    
+    // Pet-specific game sounds (these would be actual sound files in the project)
+    var sounds: [String] {
+        switch viewModel.pet.type {
+        case .cat:
+            return ["cat_note1", "cat_note2", "cat_note3", "cat_note4"]
+        case .chicken:
+            return ["chicken_note1", "chicken_note2", "chicken_note3", "chicken_note4"]
+        case .cow:
+            return ["cow_note1", "cow_note2", "cow_note3", "cow_note4"]
+        case .pig:
+            return ["pig_note1", "pig_note2", "pig_note3", "pig_note4"]
+        case .sheep:
+            return ["sheep_note1", "sheep_note2", "sheep_note3", "sheep_note4"]
+        }
+    }
+    
+    // Pet-specific background color
+    var backgroundColor: Color {
+        switch viewModel.pet.type {
+        case .cat:
+            return Color.blue.opacity(0.1)
+        case .chicken:
+            return Color.yellow.opacity(0.1)
+        case .cow:
+            return Color.brown.opacity(0.1)
+        case .pig:
+            return Color.pink.opacity(0.1)
+        case .sheep:
+            return Color.mint.opacity(0.1)
+        }
+    }
     
     var body: some View {
         VStack {
@@ -87,6 +132,8 @@ struct PatternGame: View {
                 }
             }
             .padding()
+            .background(backgroundColor)
+            .cornerRadius(12)
             
             if gameState == .notStarted {
                 Button("Start Game") {
@@ -275,7 +322,8 @@ struct PatternGame_Previews: PreviewProvider {
                 type: .patternRecognition,
                 rewardAmount: 18,
                 imageName: "game_pattern",
-                cooldownMinutes: 45
+                cooldownMinutes: 45,
+                petType: .cat
             )
         )
     }

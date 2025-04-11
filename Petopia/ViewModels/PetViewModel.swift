@@ -67,6 +67,8 @@ class PetViewModel: ObservableObject {
                 if let type = PetType(rawValue: typeString) {
                     pet.type = type
                     print("DEBUG: CRITICAL: Updated pet type to: \(pet.type.rawValue)")
+                    // Refresh minigames when pet type changes
+                    refreshMinigames()
                 }
             }
         }
@@ -79,6 +81,8 @@ class PetViewModel: ObservableObject {
                 print("DEBUG: CRITICAL: SAVED PET TYPE MISMATCH! Fixing...")
                 pet.type = savedPet.type
                 print("DEBUG: CRITICAL: Updated pet type to: \(pet.type.rawValue)")
+                // Refresh minigames when pet type changes
+                refreshMinigames()
             }
         }
     }
@@ -111,6 +115,10 @@ class PetViewModel: ObservableObject {
         // Now that pet is initialized, we can perform other setup
         loadItems()
         loadCurrencyData()
+        
+        // Refresh minigames for the pet type
+        refreshMinigames()
+        
         setupTimer()
         
         print("DEBUG: CRITICAL: PetViewModel initialization complete with pet type: \(self.pet.type.rawValue)")
@@ -176,25 +184,28 @@ class PetViewModel: ObservableObject {
     private func checkForNotifications() {
         // Send notifications if stats are low
         if pet.hunger < 20 {
-            NotificationManager.shared.sendNotification(
-                title: "\(pet.name) is hungry!",
-                body: "Your pet needs food soon."
+            NotificationManager.shared.schedulePetNeedNotification(
+                for: .hunger,
+                timeInterval: 1
             )
         }
         
         if pet.health < 30 {
-            NotificationManager.shared.sendNotification(
-                title: "\(pet.name) is sick!",
-                body: "Your pet needs medicine."
+            NotificationManager.shared.schedulePetNeedNotification(
+                for: .health,
+                timeInterval: 1
             )
         }
         
         if pet.cleanliness < 20 {
-            NotificationManager.shared.sendNotification(
-                title: "\(pet.name) needs a bath!",
-                body: "Your pet is getting dirty."
+            NotificationManager.shared.schedulePetNeedNotification(
+                for: .cleanliness,
+                timeInterval: 1
             )
         }
+        
+        // Check for overall pet state and schedule appropriate notifications
+        NotificationManager.shared.scheduleNotificationsBasedOnPetState(pet: pet)
     }
     
     // Achievement tracking methods
@@ -233,6 +244,9 @@ class PetViewModel: ObservableObject {
         // Reload all items
         loadItems()
         loadCurrencyData()
+        
+        // Refresh minigames for the new pet type
+        refreshMinigames()
         
         // Restart timer
         setupTimer()
@@ -306,6 +320,10 @@ class PetViewModel: ObservableObject {
     // Minigame properties and methods
     var availableMinigames: [Minigame] {
         return MinigameManager.shared.availableMinigames
+    }
+    
+    func refreshMinigames() {
+        MinigameManager.shared.refreshMinigames(petType: pet.type)
     }
     
     func canPlayMinigame(_ minigame: Minigame) -> Bool {
