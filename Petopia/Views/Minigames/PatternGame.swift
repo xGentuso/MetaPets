@@ -116,6 +116,18 @@ struct PatternGame: View {
                 .foregroundColor(statusColor())
                 .padding()
             
+            // Progress indicators
+            if gameState == .showing || gameState == .input {
+                HStack {
+                    ForEach(0..<pattern.count, id: \.self) { i in
+                        Circle()
+                            .fill(getProgressIndicatorColor(for: i))
+                            .frame(width: 12, height: 12)
+                    }
+                }
+                .padding(.bottom, 5)
+            }
+            
             // Pattern buttons
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(0..<4, id: \.self) { index in
@@ -124,10 +136,40 @@ struct PatternGame: View {
                             tapButton(index)
                         }
                     } label: {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(colors[index])
-                            .opacity(isButtonActive(index) ? 1.0 : 0.5)
-                            .frame(height: 130)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(colors[index])
+                                .opacity(isButtonActive(index) ? 1.0 : 0.5)
+                                .frame(height: 130)
+                            
+                            // Enhanced visual feedback for showing phase
+                            if gameState == .showing && isButtonActive(index) {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.white, lineWidth: 4)
+                                    .frame(width: 110, height: 110)
+                                
+                                Circle()
+                                    .fill(Color.white)
+                                    .opacity(0.6)
+                                    .frame(width: 50, height: 50)
+                                    .scaleEffect(1.2)
+                                    .animation(.easeInOut(duration: 0.3), value: currentIndex)
+                            }
+                            
+                            // Add number indicators to show sequence during input phase
+                            if gameState == .input {
+                                ForEach(0..<playerPattern.count, id: \.self) { i in
+                                    if playerPattern[i] == index {
+                                        Text("\(i+1)")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(6)
+                                            .background(Circle().fill(Color.black.opacity(0.5)))
+                                            .offset(x: CGFloat(i * 10 - 15), y: -40)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -217,12 +259,16 @@ struct PatternGame: View {
     }
     
     private func isButtonActive(_ index: Int) -> Bool {
-        if gameState == .showing, currentIndex < pattern.count, pattern[currentIndex] == index {
-            return true
+        // Guard against invalid currentIndex (source of crash)
+        if gameState == .showing, currentIndex >= 0, currentIndex < pattern.count {
+            return pattern[currentIndex] == index
         }
-        if gameState == .input, playerPattern.last == index {
-            return true
+        
+        // Check if this is the last button tapped during input phase
+        if gameState == .input, let lastTapped = playerPattern.last {
+            return lastTapped == index
         }
+        
         return false
     }
     
@@ -242,29 +288,43 @@ struct PatternGame: View {
     }
     
     private func showPattern() {
-        currentIndex = 0
+        // Reset state
+        currentIndex = -1
         isShowingPattern = true
         
-        func showNextInPattern() {
-            if currentIndex < pattern.count {
-                // Briefly show the current pattern item
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    currentIndex += 1
-                    if currentIndex < pattern.count {
-                        showNextInPattern()
-                    } else {
-                        // Done showing pattern
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            currentIndex = -1
-                            isShowingPattern = false
-                            gameState = .input
-                        }
-                    }
+        // Create a sequence of timed events to display the pattern
+        var displayDelay: TimeInterval = 0.5
+        
+        // Schedule each display event with increasing delays
+        for (index, _) in pattern.enumerated() {
+            // Turn on the button at the right time
+            DispatchQueue.main.asyncAfter(deadline: .now() + displayDelay) {
+                if self.gameState == .showing {
+                    self.currentIndex = index
+                    print("Showing pattern item \(index): \(self.pattern[index])")
                 }
             }
+            
+            // Turn off the button after a short display time
+            DispatchQueue.main.asyncAfter(deadline: .now() + displayDelay + 0.5) {
+                if self.gameState == .showing {
+                    self.currentIndex = -1
+                }
+            }
+            
+            // Increment delay for the next item
+            displayDelay += 0.8
         }
         
-        showNextInPattern()
+        // Switch to input state after displaying all items
+        DispatchQueue.main.asyncAfter(deadline: .now() + displayDelay) {
+            if self.gameState == .showing {
+                self.currentIndex = -1
+                self.isShowingPattern = false
+                self.gameState = .input
+                print("Pattern display complete, ready for input")
+            }
+        }
     }
     
     private func tapButton(_ index: Int) {
@@ -308,6 +368,16 @@ struct PatternGame: View {
         let baseReward = game.possibleReward
         let percentage = min(1.0, Double(score) / Double(maxScore))
         return Int(Double(baseReward) * percentage)
+    }
+    
+    private func getProgressIndicatorColor(for index: Int) -> Color {
+        if gameState == .showing && index < currentIndex {
+            return .green
+        } else if gameState == .input && index < playerPattern.count {
+            return .blue
+        } else {
+            return .gray
+        }
     }
 }
 

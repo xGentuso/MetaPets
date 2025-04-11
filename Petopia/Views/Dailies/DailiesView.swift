@@ -110,16 +110,44 @@ struct DailiesView: View {
             }
             .sheet(isPresented: $showingActivitySheet) {
                 if let activity = selectedActivity {
-                    DailyActivityDetailView(
-                        activity: activity,
-                        isPresented: $showingActivitySheet,
-                        onComplete: { reward in
-                            currentReward = reward
-                            viewModel.earnCurrency(amount: reward, description: "Completed daily activity: \(activity.name)")
-                            loadActivities() // Refresh the list
-                            showRewardAlert = true
-                        }
-                    )
+                    if activity.type == .wheel {
+                        // Use our new interactive spinning wheel view
+                        SpinningWheelView(
+                            viewModel: viewModel,
+                            activity: activity,
+                            showingActivity: $showingActivitySheet,
+                            onComplete: { reward in
+                                // Handle the returned reward
+                                currentReward = reward
+                                loadActivities() // Refresh the list after completion
+                                showRewardAlert = true
+                            }
+                        )
+                    } else if activity.type == .treasureChest {
+                        // Use our new treasure chest view
+                        TreasureChestView(
+                            viewModel: viewModel,
+                            activity: activity,
+                            showingActivity: $showingActivitySheet,
+                            onComplete: { reward in
+                                currentReward = reward
+                                loadActivities() // Refresh the list after completion
+                                showRewardAlert = true
+                            }
+                        )
+                    } else {
+                        // Use existing generic view for other activities
+                        DailyActivityDetailView(
+                            activity: activity,
+                            isPresented: $showingActivitySheet,
+                            onComplete: { reward in
+                                currentReward = reward
+                                viewModel.earnCurrency(amount: reward, description: "Completed daily activity: \(activity.name)")
+                                loadActivities() // Refresh the list
+                                showRewardAlert = true
+                            }
+                        )
+                    }
                 }
             }
             .alert(isPresented: $showRewardAlert) {

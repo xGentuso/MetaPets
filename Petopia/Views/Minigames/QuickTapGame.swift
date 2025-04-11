@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct TapItem: Identifiable {
     let id = UUID()
@@ -43,8 +44,9 @@ struct QuickTapGame: View {
     
     @State private var gameAreaSize: CGSize = .zero
     
-    private let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
-    private let gameTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    // Make timers cancellable
+    @State private var timer: AnyCancellable?
+    @State private var gameTimer: AnyCancellable?
     
     // Determine if this is a catch game (with falling items) or a pop game (with stationary items)
     private var isCatchGame: Bool {
@@ -214,25 +216,10 @@ struct QuickTapGame: View {
         .onAppear {
             initializeGame()
         }
-        .onReceive(timer) { _ in
-            if gameState == .playing {
-                updateItems()
-                
-                // Spawn new items periodically
-                let spawnProbability = (game.difficulty == .hard) ? 0.3 : (game.difficulty == .medium) ? 0.2 : 0.15
-                if Double.random(in: 0...1) < spawnProbability {
-                    spawnItem()
-                }
-            }
-        }
-        .onReceive(gameTimer) { _ in
-            if gameState == .playing {
-                if timeRemaining > 0 {
-                    timeRemaining -= 1
-                } else {
-                    endGame()
-                }
-            }
+        .onDisappear {
+            // Make sure to cancel timers when view disappears
+            timer?.cancel()
+            gameTimer?.cancel()
         }
     }
     
@@ -256,6 +243,36 @@ struct QuickTapGame: View {
     
     private func startGame() {
         gameState = .playing
+        
+        // Set up the game update timer (runs frequently for physics/item updates)
+        timer = Timer.publish(every: 0.1, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                guard gameState == .playing else { return }
+                
+                updateItems()
+                
+                // Spawn new items periodically
+                let spawnProbability = (game.difficulty == .hard) ? 0.3 : 
+                                      (game.difficulty == .medium) ? 0.2 : 0.15
+                if Double.random(in: 0...1) < spawnProbability {
+                    spawnItem()
+                }
+            }
+        
+        // Set up the countdown timer (runs every second)
+        gameTimer = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                guard gameState == .playing else { return }
+                
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                    print("Time remaining: \(timeRemaining)")
+                } else {
+                    endGame()
+                }
+            }
         
         // Spawn initial items
         for _ in 0..<3 {
@@ -487,6 +504,10 @@ struct QuickTapGame: View {
     }
     
     private func endGame() {
+        // Cancel timers first to prevent any further updates
+        timer?.cancel()
+        gameTimer?.cancel()
+        
         gameState = .won
         
         // Calculate final score adjustments
