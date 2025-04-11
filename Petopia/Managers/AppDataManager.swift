@@ -9,6 +9,9 @@ import Foundation
 
 class AppDataManager {
     static let shared = AppDataManager()
+    private let userDefaults = UserDefaults.standard
+    
+    private init() {}
     
     private let petKey = "SavedPet"
     private let lastPlayedKey = "MinigameLastPlayed"
@@ -24,70 +27,45 @@ class AppDataManager {
     // MARK: - Save Methods
     
     // Save all app data
-    func saveAllData(viewModel: PetViewModel) {
-        // Save pet data
-        if let encoded = try? JSONEncoder().encode(viewModel.pet) {
-            UserDefaults.standard.set(encoded, forKey: petKey)
+    func saveAllData(viewModel: PetViewModel) async {
+        // Save on a background thread
+        await MainActor.run {
+            if let encoded = try? JSONEncoder().encode(viewModel.pet) {
+                userDefaults.set(encoded, forKey: petKey)
+                userDefaults.synchronize()
+            }
         }
-        
-        // Save streak data
-        if let lastDate = viewModel.lastDailyBonusDate {
-            UserDefaults.standard.set(lastDate, forKey: lastDailyBonusKey)
-        }
-        UserDefaults.standard.set(viewModel.dailyBonusStreak, forKey: dailyBonusStreakKey)
-        
-        // Save dailies data (handled by DailiesManager)
-        // Save minigames data (handled by MinigameManager)
-        // Save currency transactions (handled by CurrencyManager)
-        // Save achievements data (handled by AchievementManager)
     }
     
     // MARK: - Load Methods
     
     // Load pet data
     func loadPet() -> Pet? {
-        print("DEBUG: AppDataManager attempting to load pet")
-        
-        if let savedPetData = UserDefaults.standard.data(forKey: petKey) {
-            do {
-                let pet = try JSONDecoder().decode(Pet.self, from: savedPetData)
-                print("DEBUG: AppDataManager successfully loaded pet: \(pet.name) the \(pet.type.rawValue)")
-                return pet
-            } catch {
-                print("DEBUG: ERROR - AppDataManager failed to decode pet: \(error)")
-                
-                // In case of decoding error, try to recover what we can
-                print("DEBUG: Attempting data recovery, raw data: \(savedPetData.count) bytes")
-                
-                // Clear data in case of corruption
-                UserDefaults.standard.removeObject(forKey: petKey)
-                UserDefaults.standard.synchronize()
-                
-                return nil
-            }
-        } else {
-            print("DEBUG: AppDataManager found no saved pet data")
-            return nil
+        if let savedPetData = userDefaults.data(forKey: petKey),
+           let savedPet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
+            return savedPet
         }
+        return nil
     }
     
     // Load streak data
     func loadDailyBonusData() -> (Date?, Int) {
-        let lastDate = UserDefaults.standard.object(forKey: lastDailyBonusKey) as? Date
-        let streak = UserDefaults.standard.integer(forKey: dailyBonusStreakKey)
-        return (lastDate, streak)
+        let lastBonusDate = userDefaults.object(forKey: lastDailyBonusKey) as? Date
+        let streak = userDefaults.integer(forKey: dailyBonusStreakKey)
+        return (lastBonusDate, streak)
     }
     
     // MARK: - Onboarding Data
     
     // Check if onboarding has been completed
     func hasCompletedOnboarding() -> Bool {
-        return UserDefaults.standard.bool(forKey: onboardingCompleteKey)
+        return userDefaults.bool(forKey: onboardingCompleteKey)
     }
     
     // Save onboarding completion state
     func setOnboardingComplete(_ complete: Bool) {
-        UserDefaults.standard.set(complete, forKey: onboardingCompleteKey)
+        userDefaults.set(complete, forKey: onboardingCompleteKey)
+        userDefaults.synchronize()
     }
     
     // Create a new pet from onboarding
@@ -115,12 +93,12 @@ class AppDataManager {
         // Save the pet directly to UserDefaults
         do {
             let encoded = try JSONEncoder().encode(newPet)
-            UserDefaults.standard.set(encoded, forKey: petKey)
-            UserDefaults.standard.synchronize()
+            userDefaults.set(encoded, forKey: petKey)
+            userDefaults.synchronize()
             print("DEBUG: AppDataManager directly saved new pet to UserDefaults")
             
             // Verify the save immediately
-            if let data = UserDefaults.standard.data(forKey: petKey),
+            if let data = userDefaults.data(forKey: petKey),
                let pet = try? JSONDecoder().decode(Pet.self, from: data) {
                 print("DEBUG: VERIFICATION - Pet type is: \(pet.type.rawValue)")
             }
@@ -135,16 +113,16 @@ class AppDataManager {
     
     // Mark a tip category as seen
     func markTipCategorySeen(_ category: String) {
-        var seenCategories = UserDefaults.standard.stringArray(forKey: tipsSeenKey) ?? []
+        var seenCategories = userDefaults.stringArray(forKey: tipsSeenKey) ?? []
         if !seenCategories.contains(category) {
             seenCategories.append(category)
-            UserDefaults.standard.set(seenCategories, forKey: tipsSeenKey)
+            userDefaults.set(seenCategories, forKey: tipsSeenKey)
         }
     }
     
     // Check if a tip category has been seen
     func hasTipCategoryBeenSeen(_ category: String) -> Bool {
-        let seenCategories = UserDefaults.standard.stringArray(forKey: tipsSeenKey) ?? []
+        let seenCategories = userDefaults.stringArray(forKey: tipsSeenKey) ?? []
         return seenCategories.contains(category)
     }
     
@@ -152,16 +130,16 @@ class AppDataManager {
     
     // Clear all data (for testing or resetting)
     func clearAllData() {
-        UserDefaults.standard.removeObject(forKey: petKey)
-        UserDefaults.standard.removeObject(forKey: lastPlayedKey)
-        UserDefaults.standard.removeObject(forKey: currencyTransactionsKey)
-        UserDefaults.standard.removeObject(forKey: lastDailyBonusKey)
-        UserDefaults.standard.removeObject(forKey: dailyBonusStreakKey)
-        UserDefaults.standard.removeObject(forKey: dailiesKey)
-        UserDefaults.standard.removeObject(forKey: achievementsKey)
-        UserDefaults.standard.removeObject(forKey: recentUnlocksKey)
-        UserDefaults.standard.removeObject(forKey: onboardingCompleteKey)
-        UserDefaults.standard.removeObject(forKey: tipsSeenKey)
+        userDefaults.removeObject(forKey: petKey)
+        userDefaults.removeObject(forKey: lastPlayedKey)
+        userDefaults.removeObject(forKey: currencyTransactionsKey)
+        userDefaults.removeObject(forKey: lastDailyBonusKey)
+        userDefaults.removeObject(forKey: dailyBonusStreakKey)
+        userDefaults.removeObject(forKey: dailiesKey)
+        userDefaults.removeObject(forKey: achievementsKey)
+        userDefaults.removeObject(forKey: recentUnlocksKey)
+        userDefaults.removeObject(forKey: onboardingCompleteKey)
+        userDefaults.removeObject(forKey: tipsSeenKey)
         
         // Also clear data in specific managers
         CurrencyManager.shared.clearTransactions()
@@ -182,8 +160,8 @@ class AppDataManager {
             exportDict["pet"] = petData.base64EncodedString()
         }
         
-        exportDict["dailyBonusStreak"] = UserDefaults.standard.integer(forKey: dailyBonusStreakKey)
-        if let lastBonusDate = UserDefaults.standard.object(forKey: lastDailyBonusKey) as? Date {
+        exportDict["dailyBonusStreak"] = userDefaults.integer(forKey: dailyBonusStreakKey)
+        if let lastBonusDate = userDefaults.object(forKey: lastDailyBonusKey) as? Date {
             exportDict["lastDailyBonusDate"] = lastBonusDate.timeIntervalSince1970
         }
         
@@ -203,18 +181,18 @@ class AppDataManager {
                let petData = Data(base64Encoded: petBase64),
                let pet = try? JSONDecoder().decode(Pet.self, from: petData) {
                 if let encoded = try? JSONEncoder().encode(pet) {
-                    UserDefaults.standard.set(encoded, forKey: petKey)
+                    userDefaults.set(encoded, forKey: petKey)
                 }
             }
             
             // Restore other simple data
             if let streak = dict["dailyBonusStreak"] as? Int {
-                UserDefaults.standard.set(streak, forKey: dailyBonusStreakKey)
+                userDefaults.set(streak, forKey: dailyBonusStreakKey)
             }
             
             if let lastBonusTimeInterval = dict["lastDailyBonusDate"] as? TimeInterval {
                 let date = Date(timeIntervalSince1970: lastBonusTimeInterval)
-                UserDefaults.standard.set(date, forKey: lastDailyBonusKey)
+                userDefaults.set(date, forKey: lastDailyBonusKey)
             }
             
             return true
@@ -222,5 +200,11 @@ class AppDataManager {
             print("Error importing data: \(error)")
             return false
         }
+    }
+    
+    func saveDailyBonusData(date: Date, streak: Int) {
+        userDefaults.set(date, forKey: lastDailyBonusKey)
+        userDefaults.set(streak, forKey: dailyBonusStreakKey)
+        userDefaults.synchronize()
     }
 }

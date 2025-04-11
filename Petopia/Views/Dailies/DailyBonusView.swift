@@ -202,12 +202,12 @@ struct DailyBonusView: View {
     // Claim the daily bonus
     private func claimBonus() {
         isCollecting = true
-        
+         
         // Animate button press
         withAnimation(.spring()) {
             // Add the bonus to currency
             viewModel.pet.currency += todaysBonus
-            
+             
             // Update streak counter
             if let lastDate = viewModel.lastDailyBonusDate, 
                Calendar.current.isDateInYesterday(lastDate) {
@@ -216,17 +216,19 @@ struct DailyBonusView: View {
                      !Calendar.current.isDateInYesterday(viewModel.lastDailyBonusDate!) {
                 viewModel.dailyBonusStreak = 1
             }
-            
+             
             // Update last claimed date
             viewModel.lastDailyBonusDate = Date()
-            
+             
             // Show confetti
             showConfetti = true
-            
+             
             // Save data
-            AppDataManager.shared.saveAllData(viewModel: viewModel)
+            Task {
+                await AppDataManager.shared.saveAllData(viewModel: viewModel)
+            }
         }
-        
+         
         // Reset state after animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             showConfetti = false

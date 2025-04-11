@@ -21,6 +21,7 @@ class PetViewModel: ObservableObject {
     
     private var lastUpdateTime: Date
     private var timer: AnyCancellable?
+    private var autoSaveTimer: AnyCancellable?
     
     // Add a static helper method to get the selected pet type
     static func getStoredPetType() -> PetType {
@@ -121,6 +122,8 @@ class PetViewModel: ObservableObject {
         
         setupTimer()
         
+        setupTimers()
+        
         print("DEBUG: CRITICAL: PetViewModel initialization complete with pet type: \(self.pet.type.rawValue)")
         
         // Force another verification
@@ -132,6 +135,7 @@ class PetViewModel: ObservableObject {
     
     deinit {
         timer?.cancel()
+        autoSaveTimer?.cancel()
     }
     
     private func loadItems() {
@@ -252,7 +256,9 @@ class PetViewModel: ObservableObject {
         setupTimer()
         
         // Save the updated pet to ensure it's persisted
-        AppDataManager.shared.saveAllData(viewModel: self)
+        Task {
+            await AppDataManager.shared.saveAllData(viewModel: self)
+        }
         
         print("DEBUG: CRITICAL: PetViewModel updated with new pet: \(newPet.name) the \(newPet.type.rawValue)")
     }
@@ -520,8 +526,10 @@ class PetViewModel: ObservableObject {
     
     // Save data
     private func autoSave() {
-        // Use AppDataManager to save all data
-        AppDataManager.shared.saveAllData(viewModel: self)
+        // Use AppDataManager to save all data with Task to handle async call
+        Task {
+            await AppDataManager.shared.saveAllData(viewModel: self)
+        }
     }
     
     // Reset the view model state with a new pet
@@ -552,7 +560,9 @@ class PetViewModel: ObservableObject {
         setupTimer()
         
         // Save the updated state
-        AppDataManager.shared.saveAllData(viewModel: self)
+        Task {
+            await AppDataManager.shared.saveAllData(viewModel: self)
+        }
         UserDefaults.standard.synchronize()
         
         print("DEBUG: CRITICAL: View model reset complete with pet type: \(newPet.type.rawValue)")
@@ -598,5 +608,17 @@ class PetViewModel: ObservableObject {
             // Simple notification of change
             objectWillChange.send()
         }
+    }
+    
+    private func setupTimers() {
+        // Auto-save timer
+        autoSaveTimer = Timer.publish(every: 30, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                Task {
+                    await AppDataManager.shared.saveAllData(viewModel: self)
+                }
+            }
     }
 }

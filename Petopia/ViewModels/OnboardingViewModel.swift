@@ -86,6 +86,7 @@ class OnboardingViewModel: ObservableObject {
             return
         }
         
+        // Mark onboarding as complete
         AppDataManager.shared.setOnboardingComplete(true)
         UserDefaults.standard.synchronize()
         onboardingComplete = true

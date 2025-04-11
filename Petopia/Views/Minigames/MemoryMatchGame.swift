@@ -410,8 +410,10 @@ struct MemoryMatchGame: View {
         // Add reward to pet currency
         viewModel.pet.currency += reward
         
-        // Save data
-        AppDataManager.shared.saveAllData(viewModel: viewModel)
+        // Save data using Task for async call
+        Task {
+            await AppDataManager.shared.saveAllData(viewModel: viewModel)
+        }
         
         // Mark game as ended
         gameEnded = true

@@ -13,50 +13,30 @@ class NotificationManager {
     
     private init() {}
     
-    // Request notification permissions
-    func requestPermissions() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
-            if granted {
-                print("Notification permission granted")
-                DispatchQueue.main.async {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-            } else if let error = error {
-                print("Notification permission error: \(error.localizedDescription)")
-            }
+    func requestPermissions() async {
+        do {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            guard settings.authorizationStatus != .authorized else { return }
+            
+            try await UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert, .badge, .sound]
+            )
+        } catch {
+            print("Error requesting notification permissions: \(error)")
         }
     }
     
     // Schedule a pet need notification
     func schedulePetNeedNotification(for need: PetNeed, timeInterval: TimeInterval) {
         let content = UNMutableNotificationContent()
-        content.title = "Your pet needs attention!"
-        content.body = notificationMessage(for: need)
+        content.title = "Your Pet Needs You!"
+        content.body = "Your pet needs \(need.description)"
         content.sound = .default
-        content.categoryIdentifier = "PET_NEED"
         
-        // Add action button
-        let actionIdentifier = "VIEW_PET"
-        let action = UNNotificationAction(identifier: actionIdentifier, title: "Check Pet", options: .foreground)
-        let category = UNNotificationCategory(identifier: "PET_NEED", actions: [action], intentIdentifiers: [], options: [])
-        UNUserNotificationCenter.current().setNotificationCategories([category])
-        
-        // Trigger after the specified time interval
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
         
-        // Create the request with a unique identifier
-        let request = UNNotificationRequest(identifier: "\(need.rawValue)_\(Date().timeIntervalSince1970)", 
-                                            content: content, 
-                                            trigger: trigger)
-        
-        // Add the request
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Error scheduling notification: \(error.localizedDescription)")
-            } else {
-                print("Successfully scheduled notification for \(need.rawValue)")
-            }
-        }
+        UNUserNotificationCenter.current().add(request)
     }
     
     // Schedule a daily bonus reminder
@@ -95,28 +75,17 @@ class NotificationManager {
         // Clear any existing notifications
         cancelAllNotifications()
         
-        // Check hunger levels
-        if pet.hunger < 50 {
-            let timeToEmpty = (pet.hunger / 5) * 3600 // Rough estimate: each hunger point lasts ~3600 seconds
-            schedulePetNeedNotification(for: .hunger, timeInterval: timeToEmpty)
+        // Schedule notifications based on pet state
+        if pet.hunger < 30 {
+            schedulePetNeedNotification(for: .hunger, timeInterval: 3600)
         }
         
-        // Check energy levels
-        if pet.energy < 40 {
-            let timeToExhaustion = (pet.energy / 4) * 3600
-            schedulePetNeedNotification(for: .energy, timeInterval: timeToExhaustion)
+        if pet.happiness < 30 {
+            schedulePetNeedNotification(for: .happiness, timeInterval: 3600)
         }
         
-        // Check cleanliness
-        if pet.cleanliness < 40 {
-            let timeToDirty = (pet.cleanliness / 2) * 3600
-            schedulePetNeedNotification(for: .cleanliness, timeInterval: timeToDirty)
-        }
-        
-        // Check happiness
-        if pet.happiness < 40 {
-            let timeToSad = (pet.happiness / 3) * 3600
-            schedulePetNeedNotification(for: .happiness, timeInterval: timeToSad)
+        if pet.cleanliness < 30 {
+            schedulePetNeedNotification(for: .cleanliness, timeInterval: 3600)
         }
         
         // Schedule daily bonus reminder if not already claimed today
@@ -127,29 +96,18 @@ class NotificationManager {
     func cancelAllNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
-    
-    // Generate notification message based on need
-    private func notificationMessage(for need: PetNeed) -> String {
-        switch need {
-        case .hunger:
-            return "Your pet is getting hungry! Time for a snack."
-        case .energy:
-            return "Your pet is tired. Let it get some rest."
-        case .cleanliness:
-            return "Your pet needs a bath. It's getting dirty!"
-        case .happiness:
-            return "Your pet is feeling lonely. Play with it!"
-        case .health:
-            return "Your pet isn't feeling well. Some medicine might help."
-        }
-    }
 }
 
 // Pet needs enum
-enum PetNeed: String {
-    case hunger
-    case energy
-    case cleanliness
-    case happiness
-    case health
+enum PetNeed {
+    case hunger, happiness, health, cleanliness
+    
+    var description: String {
+        switch self {
+        case .hunger: return "food"
+        case .happiness: return "attention"
+        case .health: return "medicine"
+        case .cleanliness: return "cleaning"
+        }
+    }
 }
