@@ -240,8 +240,17 @@ struct OnboardingView: View {
                         .padding(.horizontal)
                     
                     Button(action: {
+                        print("DEBUG: CRITICAL: Start Playing button pressed")
                         viewModel.createPet()
                         viewModel.completeOnboarding()
+                        
+                        // Force a UI update to give feedback
+                        withAnimation {
+                            // Add a brief delay so user sees the button press
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                print("DEBUG: CRITICAL: Onboarding complete flag set to: \(viewModel.onboardingComplete)")
+                            }
+                        }
                     }) {
                         Text("Start Playing")
                             .font(.headline)

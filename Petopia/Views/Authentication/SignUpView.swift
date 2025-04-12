@@ -51,6 +51,14 @@ struct SignUpView: View {
                                 .autocapitalization(.none)
                                 .disabled(isLoading)
                             
+                            // Add helper text about username login
+                            Text("You'll use your username to login")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 5)
+                                .padding(.top, -10)
+                            
                             TextField("Email", text: $email)
                                 .textFieldStyle(RoundedTextFieldStyle())
                                 .textContentType(.emailAddress)

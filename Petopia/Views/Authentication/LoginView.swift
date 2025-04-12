@@ -2,8 +2,9 @@ import SwiftUI
 
 struct LoginView: View {
     @StateObject private var authManager = AuthenticationManager.shared
-    @State private var email = ""
+    @State private var username = ""
     @State private var password = ""
+    @State private var rememberMe = false
     @State private var showingSignUp = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -39,10 +40,8 @@ struct LoginView: View {
                     
                     // Login form
                     VStack(spacing: 20) {
-                        TextField("Email", text: $email)
+                        TextField("Username", text: $username)
                             .textFieldStyle(RoundedTextFieldStyle())
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
                             .autocapitalization(.none)
                             .disabled(isLoading)
                         
@@ -50,6 +49,14 @@ struct LoginView: View {
                             .textFieldStyle(RoundedTextFieldStyle())
                             .textContentType(.password)
                             .disabled(isLoading)
+                        
+                        // Add Remember Me checkbox
+                        Toggle(isOn: $rememberMe) {
+                            Text("Remember Me")
+                                .foregroundColor(.secondary)
+                        }
+                        .toggleStyle(CheckboxToggleStyle())
+                        .padding(.horizontal, 5)
                         
                         Button(action: login) {
                             ZStack {
@@ -95,11 +102,15 @@ struct LoginView: View {
             } message: {
                 Text(alertMessage)
             }
+            .onAppear {
+                // Load saved Remember Me preference
+                rememberMe = authManager.isRememberMeEnabled()
+            }
         }
     }
     
     private func login() {
-        guard !email.isEmpty, !password.isEmpty else {
+        guard !username.isEmpty, !password.isEmpty else {
             alertMessage = "Please fill in all fields"
             showingAlert = true
             return
@@ -109,16 +120,35 @@ struct LoginView: View {
         
         Task {
             do {
-                if try await authManager.login(email: email, password: password) {
+                if try await authManager.login(username: username, password: password, rememberMe: rememberMe) {
                     isLoading = false
                 } else {
                     throw AuthError.invalidCredentials
                 }
             } catch {
                 isLoading = false
-                alertMessage = "Invalid email or password"
+                alertMessage = "Invalid username or password"
                 showingAlert = true
             }
+        }
+    }
+}
+
+// Custom checkbox toggle style
+struct CheckboxToggleStyle: ToggleStyle {
+    func makeBody(configuration: Self.Configuration) -> some View {
+        HStack {
+            configuration.label
+            Spacer()
+            Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
+                .resizable()
+                .frame(width: 22, height: 22)
+                .foregroundColor(configuration.isOn ? .blue : .gray)
+                .onTapGesture {
+                    withAnimation(.spring()) {
+                        configuration.isOn.toggle()
+                    }
+                }
         }
     }
 }

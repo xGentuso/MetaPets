@@ -29,6 +29,8 @@ class OnboardingViewModel: ObservableObject {
         
         // First, clear any existing pet data
         UserDefaults.standard.removeObject(forKey: "SavedPet")
+        // Also clear the separate pet type record
+        UserDefaults.standard.removeObject(forKey: "SelectedPetType")
         UserDefaults.standard.synchronize()
         
         // Create a completely fresh pet with the specified type
@@ -50,7 +52,8 @@ class OnboardingViewModel: ObservableObject {
         )
         
         // Save directly to UserDefaults
-        if let encoded = try? JSONEncoder().encode(newPet) {
+        do {
+            let encoded = try JSONEncoder().encode(newPet)
             UserDefaults.standard.set(encoded, forKey: "SavedPet")
             UserDefaults.standard.synchronize()
             
@@ -58,39 +61,57 @@ class OnboardingViewModel: ObservableObject {
             if let data = UserDefaults.standard.data(forKey: "SavedPet"),
                let pet = try? JSONDecoder().decode(Pet.self, from: data) {
                 print("DEBUG: CRITICAL: Verification confirms pet type is: \(pet.type.rawValue)")
+                
+                // Double-check that the type is correct
+                if pet.type.rawValue != petType.rawValue {
+                    print("DEBUG: CRITICAL: ERROR - Pet type mismatch after saving!")
+                }
             }
+        } catch {
+            print("DEBUG: CRITICAL: Error saving pet: \(error)")
         }
         
         // Also store the pet type separately for redundancy
         UserDefaults.standard.set(petType.rawValue, forKey: "SelectedPetType")
         UserDefaults.standard.synchronize()
+        
+        // Final verification of stored pet type
+        if let storedTypeString = UserDefaults.standard.string(forKey: "SelectedPetType") {
+            print("DEBUG: CRITICAL: Verified stored pet type: \(storedTypeString)")
+        } else {
+            print("DEBUG: CRITICAL: ERROR - Failed to store pet type separately!")
+        }
     }
     
     // Mark onboarding as complete
     func completeOnboarding() {
-        print("DEBUG: Completing onboarding")
+        print("DEBUG: CRITICAL: completeOnboarding() method called")
         
         // Ensure pet is saved before completing onboarding
         if let petType = selectedPetType, !petName.isEmpty {
-            print("DEBUG: Creating final pet before completing onboarding")
+            print("DEBUG: CRITICAL: Creating final pet before completing onboarding")
             createPet()
             
             // Verify the pet was saved correctly
             if let savedPet = AppDataManager.shared.loadPet() {
-                print("DEBUG: Final verification - loaded: \(savedPet.name) the \(savedPet.type.rawValue)")
+                print("DEBUG: CRITICAL: Final verification - loaded: \(savedPet.name) the \(savedPet.type.rawValue)")
             } else {
-                print("DEBUG: ERROR - Failed to load pet in final verification")
+                print("DEBUG: CRITICAL: ERROR - Failed to load pet in final verification")
             }
         } else {
-            print("DEBUG: ERROR - Cannot complete onboarding without pet type and name")
+            print("DEBUG: CRITICAL: ERROR - Cannot complete onboarding without pet type and name")
             return
         }
         
         // Mark onboarding as complete
         AppDataManager.shared.setOnboardingComplete(true)
         UserDefaults.standard.synchronize()
-        onboardingComplete = true
-        print("DEBUG: Onboarding completed successfully")
+        
+        // Set onboardingComplete flag and notify subscribers using the main thread
+        DispatchQueue.main.async {
+            self.onboardingComplete = true
+            print("DEBUG: CRITICAL: Onboarding completion flag set to TRUE")
+        }
     }
     
     // Reset onboarding status (for testing)

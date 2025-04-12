@@ -19,9 +19,21 @@ struct Petopia: App {
     @State private var isBackupSuccess = true
     @State private var appRefreshID = UUID() // Add state for forcing app refresh
     
+    // Add a state to track the current app flow
+    @State private var appState: AppState = .initializing
+    
+    enum AppState {
+        case initializing
+        case login
+        case onboarding
+        case mainApp
+    }
+    
     init() {
         // For testing - Clear all data and force onboarding in debug mode
         #if DEBUG
+        // Commenting out data clearing for normal development
+        /*
         // Clear all UserDefaults data
         if let domain = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: domain)
@@ -30,6 +42,20 @@ struct Petopia: App {
         AppDataManager.shared.setOnboardingComplete(false)
         UserDefaults.standard.synchronize()
         print("DEBUG: Cleared all data and reset onboarding")
+        */
+        // Add debug flag for data clearing if needed
+        let shouldClearDataInDebug = false // Set to true when you want to reset app state
+
+        if shouldClearDataInDebug {
+            // Clear all UserDefaults data
+            if let domain = Bundle.main.bundleIdentifier {
+                UserDefaults.standard.removePersistentDomain(forName: domain)
+            }
+            AppDataManager.shared.clearAllData()
+            AppDataManager.shared.setOnboardingComplete(false)
+            UserDefaults.standard.synchronize()
+            print("DEBUG: Cleared all data and reset onboarding")
+        }
         #endif
         
         // Perform any necessary data migrations
@@ -54,13 +80,54 @@ struct Petopia: App {
                 // Debug logging
                 let _ = print("DEBUG: Onboarding complete? \(onboardingViewModel.onboardingComplete)")
                 let _ = print("DEBUG: AppDataManager onboarding status: \(AppDataManager.shared.hasCompletedOnboarding())")
+                let _ = print("DEBUG: Current app state: \(appState)")
                 #endif
                 
-                // First check authentication status
-                if authManager.isAuthenticated {
-                    // User is authenticated, now check if onboarding is completed
-                    if AppDataManager.shared.hasCompletedOnboarding() {
-                        // Regular app flow - authenticated and completed onboarding
+                // Use appState to determine what to show instead of nested conditionals
+                Group {
+                    if appState == .login {
+                        // Show login/signup view
+                        LoginView()
+                            .opacity(showLaunchScreen ? 0 : 1)
+                            .environmentObject(authManager)
+                            .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                                if isAuthenticated {
+                                    DispatchQueue.main.async {
+                                        // Determine next screen based on onboarding status
+                                        if AppDataManager.shared.hasCompletedOnboarding() {
+                                            appState = .mainApp
+                                        } else {
+                                            appState = .onboarding
+                                        }
+                                    }
+                                }
+                            }
+                    } else if appState == .onboarding {
+                        // Onboarding flow
+                        OnboardingView(viewModel: onboardingViewModel)
+                            .opacity(showLaunchScreen ? 0 : 1)
+                            .onChange(of: onboardingViewModel.onboardingComplete) { _, completed in
+                                print("DEBUG: CRITICAL: OnboardingView detected onboardingComplete change to: \(completed)")
+                                if completed {
+                                    // Handle completion with a slight delay to ensure views are updated properly
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        handleOnboardingCompletion()
+                                    }
+                                }
+                            }
+                            // Add an additional timer check in case the onChange doesn't fire
+                            .onAppear {
+                                // Start a timer that checks onboardingComplete status regularly
+                                Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+                                    if onboardingViewModel.onboardingComplete {
+                                        print("DEBUG: CRITICAL: Timer detected onboardingComplete = true")
+                                        timer.invalidate()
+                                        handleOnboardingCompletion()
+                                    }
+                                }
+                            }
+                    } else if appState == .mainApp {
+                        // Regular app flow
                         ContentView()
                             .opacity(showLaunchScreen ? 0 : 1)
                             .environment(\.openURL, OpenURLAction { url in
@@ -76,57 +143,9 @@ struct Petopia: App {
                             .environmentObject(authManager)
                             .environmentObject(viewModel)
                     } else {
-                        // Onboarding flow - authenticated but not completed onboarding
-                        OnboardingView(viewModel: onboardingViewModel)
-                            .opacity(showLaunchScreen ? 0 : 1)
-                            .onChange(of: onboardingViewModel.onboardingComplete) { _, completed in
-                                if completed {
-                                    print("DEBUG: CRITICAL: ************* ONBOARDING COMPLETED *************")
-                                    
-                                    // Ensure we're really marking onboarding as complete
-                                    AppDataManager.shared.setOnboardingComplete(true)
-                                    UserDefaults.standard.synchronize()
-                                    
-                                    // Force a reload of the saved pet data
-                                    if let newPet = AppDataManager.shared.loadPet() {
-                                        print("DEBUG: CRITICAL: Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
-                                        
-                                        // Completely replace the pet type directly in UserDefaults
-                                        UserDefaults.standard.removeObject(forKey: "SavedPet")
-                                        UserDefaults.standard.synchronize()
-                                        
-                                        // Re-save the pet with forced type
-                                        do {
-                                            let encoder = JSONEncoder()
-                                            let petData = try encoder.encode(newPet)
-                                            UserDefaults.standard.set(petData, forKey: "SavedPet")
-                                            UserDefaults.standard.set(newPet.type.rawValue, forKey: "SelectedPetType")
-                                            UserDefaults.standard.synchronize()
-                                            print("DEBUG: CRITICAL: Re-saved pet with enforced type: \(newPet.type.rawValue)")
-                                        } catch {
-                                            print("DEBUG: CRITICAL: Error encoding pet: \(error)")
-                                        }
-                                        
-                                        // Create a new view model with the loaded pet
-                                        let newViewModel = PetViewModel(pet: newPet)
-                                        viewModel.updateWithNewPet(newPet)
-                                        
-                                        // Force a view refresh by updating refresh ID
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                            print("DEBUG: CRITICAL: ************* REFRESHING APP VIEWS *************")
-                                            appRefreshID = UUID()
-                                        }
-                                    } else {
-                                        print("DEBUG: CRITICAL: Failed to load new pet after onboarding")
-                                    }
-                                }
-                            }
+                        // Initializing state - just show a blank view while determining state
+                        Color.clear
                     }
-                } else {
-                    // Show login/signup view - not authenticated yet
-                    LoginView()
-                        .opacity(showLaunchScreen ? 0 : 1)
-                        .environmentObject(authManager)
                 }
                 
                 if showLaunchScreen {
@@ -140,6 +159,11 @@ struct Petopia: App {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                     withAnimation {
                         showLaunchScreen = false
+                    }
+                    
+                    // Determine initial app state after launch screen
+                    DispatchQueue.main.async {
+                        determineInitialAppState()
                     }
                 }
             }
@@ -163,6 +187,67 @@ struct Petopia: App {
                         createAutoBackup()
                     }
                 }
+            }
+        }
+    }
+    
+    // Helper function to determine initial app state
+    private func determineInitialAppState() {
+        // Check if user is authenticated (respects Remember Me setting via AuthenticationManager)
+        if !authManager.isAuthenticated {
+            appState = .login
+            print("DEBUG: User not authenticated, showing login")
+        } else if !AppDataManager.shared.hasCompletedOnboarding() {
+            appState = .onboarding
+            print("DEBUG: User authenticated but onboarding not complete")
+        } else {
+            appState = .mainApp
+            print("DEBUG: User authenticated and onboarding complete, showing main app")
+        }
+        print("DEBUG: Initial app state set to: \(appState)")
+    }
+    
+    // Handle onboarding completion - moved to a separate function
+    private func handleOnboardingCompletion() {
+        print("DEBUG: CRITICAL: ************* ONBOARDING COMPLETED - HANDLING COMPLETION *************")
+        
+        // Ensure we're really marking onboarding as complete
+        AppDataManager.shared.setOnboardingComplete(true)
+        UserDefaults.standard.synchronize()
+        
+        // Force a reload of the saved pet data
+        if let newPet = AppDataManager.shared.loadPet() {
+            print("DEBUG: CRITICAL: Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
+            
+            // Replace the existing viewModel with the new one
+            viewModel.updateWithNewPet(newPet)
+            
+            // Transition to main app view after a slight delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                print("DEBUG: CRITICAL: ************* TRANSITIONING TO MAIN APP *************")
+                // Set app state to mainApp, which will trigger a full view hierarchy change
+                self.appState = .mainApp
+                
+                // Also refresh view ID to force a complete rebuild
+                self.appRefreshID = UUID()
+                
+                print("DEBUG: CRITICAL: App state changed to: \(self.appState)")
+            }
+        } else {
+            print("DEBUG: CRITICAL: Failed to load pet after onboarding - EMERGENCY FALLBACK")
+            
+            // EMERGENCY FALLBACK: Try to create a default pet if loading fails
+            let defaultPet = Pet(name: onboardingViewModel.petName, 
+                                type: onboardingViewModel.selectedPetType ?? .cat,
+                                birthDate: Date())
+            
+            viewModel.updateWithNewPet(defaultPet)
+            
+            // Still transition to main app even if pet loading failed
+            DispatchQueue.main.async {
+                self.appState = .mainApp
+                self.appRefreshID = UUID()
+                print("DEBUG: CRITICAL: Emergency fallback complete - App state: \(self.appState)")
             }
         }
     }

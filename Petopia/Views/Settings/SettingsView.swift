@@ -18,7 +18,9 @@ struct SettingsView: View {
     @State private var backupMessage = ""
     @State private var isBackupSuccess = true
     @State private var showDocumentPicker = false
-    @State private var cloudSyncEnabled = CloudKitManager.shared.isSyncEnabled
+    
+    // Initialize with a safe default value, avoiding direct CloudKit call
+    @State private var cloudSyncEnabled = false
     @State private var showingCloudAlert = false
     @State private var cloudAlertMessage = ""
     @State private var isSyncing = false
@@ -73,41 +75,30 @@ struct SettingsView: View {
                 
                 // Data Management Section
                 Section(header: Text("DATA MANAGEMENT")) {
+                    #if DEBUG
+                    // Only show iCloud sync in DEBUG when CloudKit isn't fully configured
                     Toggle(isOn: $cloudSyncEnabled) {
                         HStack {
                             Image(systemName: "cloud")
                                 .foregroundColor(.blue)
-                            Text("iCloud Sync")
+                            Text("iCloud Sync (Coming Soon)")
                         }
                     }
-                    .onChange(of: cloudSyncEnabled) { newValue in
-                        if newValue {
-                            // Request CloudKit permissions when enabling
-                            CloudKitManager.shared.requestPermissions { success in
-                                if success {
-                                    CloudKitManager.shared.isSyncEnabled = true
-                                    showingCloudAlert = true
-                                    cloudAlertMessage = "iCloud sync enabled. Your pet data will now sync across your devices."
-                                } else {
-                                    // Revert toggle if permissions not granted
-                                    cloudSyncEnabled = false
-                                    showingCloudAlert = true
-                                    cloudAlertMessage = "Could not enable iCloud sync. Please make sure you are signed in to iCloud."
-                                }
-                            }
-                        } else {
-                            CloudKitManager.shared.isSyncEnabled = false
-                        }
-                    }
+                    .disabled(true) // Disable the toggle to prevent crashes
                     
-                    Button(action: syncNow) {
+                    Button(action: {
+                        // Show CloudKit coming soon message
+                        showingCloudAlert = true
+                        cloudAlertMessage = "iCloud sync will be available in a future update."
+                    }) {
                         HStack {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .foregroundColor(.blue)
-                            Text("Sync Now")
+                            Text("Sync Now (Coming Soon)")
                         }
                     }
-                    .disabled(!cloudSyncEnabled)
+                    .disabled(true) // Disable the button to prevent crashes
+                    #endif
                     
                     Button(action: createBackup) {
                         HStack {
@@ -244,13 +235,6 @@ struct SettingsView: View {
                     showingBackupAlert = true
                 }
             }
-            .alert(isPresented: $showingBackupAlert) {
-                Alert(
-                    title: Text(isBackupSuccess ? "Success" : "Error"),
-                    message: Text(backupMessage),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
             .alert(isPresented: $showingCloudAlert) {
                 Alert(
                     title: Text("iCloud Sync"),
@@ -280,6 +264,16 @@ struct SettingsView: View {
                     }
                 }
             )
+            .onAppear {
+                // Safely get the cloud sync enabled status without crashing
+                do {
+                    // Try to access UserDefaults instead of direct CloudKit access
+                    cloudSyncEnabled = UserDefaults.standard.bool(forKey: "CloudSyncEnabled")
+                } catch {
+                    // If any error occurs, just set to false
+                    cloudSyncEnabled = false
+                }
+            }
         }
     }
     
@@ -310,32 +304,11 @@ struct SettingsView: View {
         return "Unknown"
     }
     
-    // Sync now functionality
+    // Sync now functionality - simplified to prevent crashes
     private func syncNow() {
-        guard cloudSyncEnabled else { return }
-        
-        isSyncing = true
-        
-        // First upload data
-        CloudKitManager.shared.uploadData()
-        
-        // Then download any newer data
-        CloudKitManager.shared.downloadData { success in
-            isSyncing = false
-            
-            showingCloudAlert = true
-            cloudAlertMessage = success ?
-                "Sync completed successfully. Your data is now up to date across all your devices." :
-                "There was a problem syncing your data. Please try again later."
-            
-            // If sync was successful and new data was downloaded
-            if success {
-                // Refresh the pet view model with new data
-                if let newPet = AppDataManager.shared.loadPet() {
-                    viewModel.pet = newPet
-                }
-            }
-        }
+        // Just show a message for now
+        showingCloudAlert = true
+        cloudAlertMessage = "iCloud sync will be available in a future update."
     }
     
     // Format current date for filename

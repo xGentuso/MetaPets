@@ -14,15 +14,18 @@ struct CurrencyBadge: View {
         HStack(spacing: 4) {
             Image(systemName: "dollarsign.circle.fill")
                 .foregroundColor(.yellow)
+                .font(.system(size: 16, weight: .bold))
             
             Text("\(amount)")
-                .fontWeight(.bold)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.black)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(
             Capsule()
                 .fill(Color.yellow.opacity(0.2))
+                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
         )
     }
 }

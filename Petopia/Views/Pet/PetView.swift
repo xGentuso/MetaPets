@@ -9,23 +9,33 @@ struct PetView: View {
             // Main content area with reduced padding and spacing
             VStack(spacing: 5) {
                 // Pet name, level, and currency badge
-                HStack {
-                    VStack(alignment: .leading, spacing: 0) {
+                ZStack {
+                    // Center pet information
+                    VStack(alignment: .center, spacing: 0) {
                         Text(viewModel.pet.name)
-                            .font(.title)
-                            .fontWeight(.bold)
+                            .font(.system(size: 28, weight: .bold))
                         
                         Text("Level \(viewModel.pet.level) • \(viewModel.pet.stage.rawValue.capitalized)")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
+                    .frame(maxWidth: .infinity)
                     
-                    Spacer()
+                    // Settings icon placeholder on the left (for visual balance)
+                    HStack {
+                        Color.clear
+                            .frame(width: 38, height: 38)
+                        Spacer()
+                    }
                     
-                    CurrencyBadge(amount: viewModel.pet.currency)
+                    // Currency badge on the right
+                    HStack {
+                        Spacer()
+                        CurrencyBadge(amount: viewModel.pet.currency)
+                    }
                 }
                 .padding(.horizontal)
-                .padding(.top, 5)
+                .padding(.top, 8)
                 
                 // Pet animation area (reduced size)
                 ZStack {
@@ -34,35 +44,49 @@ struct PetView: View {
                         .fill(backgroundColorForStatus)
                         .frame(width: 220, height: 220) // Smaller circle
                     
-                    // Fixed pet image with separate animation
+                    // Get the pet type and log it for debugging
                     let petType = viewModel.pet.type.rawValue
                     
-                    // The image itself - not part of the animation modifier chain
+                    // Use a single Image with controlled animation
                     Image(petType)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 160, height: 160)
-                        // Only animate the offset, not the whole image
-                        .offset(y: isAnimating ? -8 : 8)
-                        .id("pet-image-fixed-\(petType)") // Fixed ID tied to pet type
+                        // Use a more controlled offset animation to prevent doubling
+                        .offset(y: isAnimating ? -5 : 5)
+                        // Keep the animation smooth
+                        .animation(
+                            Animation
+                                .easeInOut(duration: animationDuration)
+                                .repeatForever(autoreverses: true),
+                            value: isAnimating
+                        )
+                        // Make sure we have a stable ID that doesn't regenerate on state changes
+                        .id("pet-image-\(petType)")
                     
-                    // Status indicator
+                    // Status indicator (moved outside to prevent interference with pet animation)
                     Text(viewModel.pet.currentStatus.emoji)
-                        .font(.system(size: 36)) // Slightly smaller emoji
-                        .offset(x: 65, y: -65) // Adjusted position
+                        .font(.system(size: 36))
+                        .offset(x: 65, y: -65)
+                        // No animation on the emoji
+                        .animation(nil, value: isAnimating)
                 }
                 .padding(.vertical, 5) // Reduced padding
                 .onAppear {
-                    // Start animation after a brief delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(
-                            Animation.easeInOut(duration: animationDuration)
-                                .repeatForever(autoreverses: true)
-                        ) {
-                            isAnimating = true
-                        }
-                    }
+                    // Set animation flag only once on appear
+                    isAnimating = true
                     print("DEBUG: PetView appeared with pet type: \(viewModel.pet.type.rawValue)")
+                    
+                    // Force refresh the view when it appears to ensure correct pet type is shown
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        viewModel.objectWillChange.send()
+                    }
+                    
+                    // Verify pet type one more time on view appear
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        print("DEBUG: CRITICAL: Re-verifying pet type on view appear")
+                        viewModel.verifyAndRefreshPetType()
+                    }
                 }
                 
                 // Quick Tip based on pet status
@@ -193,11 +217,14 @@ struct PetView: View {
                         viewModel.sleep(hours: 2)
                     }
                 }
-                .padding(.vertical, 8)
-                .padding(.bottom, 5)
+                .padding(.vertical, 12)
                 .background(Color(UIColor.systemBackground))
             }
         }
+        // Add safe area respect
+        .ignoresSafeArea(edges: .bottom)
+        // Add specific extra padding for the tab bar
+        .padding(.bottom, 60)
     }
     
     // Helper function to get the evolution level
@@ -259,13 +286,8 @@ struct PetView: View {
     }
     
     private var animationDuration: Double {
-        switch viewModel.pet.currentStatus {
-        case .happy: return 1.0  // Bouncy and energetic
-        case .hungry: return 2.0  // Slower, lethargic
-        case .sick: return 1.5    // Slightly shaky
-        case .sleepy: return 3.0  // Very slow, sleepy
-        case .dirty: return 1.8   // Uncomfortable
-        }
+        // Use a consistent animation duration to avoid timing issues
+        return 1.5
     }
 }
 
@@ -305,14 +327,13 @@ struct SmallerActionButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 20))
+                    .font(.system(size: 18))
                 Text(title)
-                    .font(.caption)
+                    .font(.caption2)
             }
-            .frame(width: 50, height: 50)
-            .padding(5)
+            .frame(width: 60, height: 40)
             .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(8)

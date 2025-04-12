@@ -44,14 +44,23 @@ struct ContentView: View {
                         Label("Store", systemImage: "bag.fill")
                     }
             }
-            .navigationBarItems(trailing:
+            .padding(.bottom, 4)
+            .accentColor(.blue)
+            .navigationBarItems(leading:
                 Button(action: {
                     showingSettings = true
                 }) {
-                    Image(systemName: "gear")
-                        .font(.system(size: 20))
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 22))
                         .foregroundColor(.blue)
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(Color.blue.opacity(0.1))
+                        )
                 }
+                .padding(.leading, 12)
+                .padding(.top, 4)
             )
         }
         .sheet(isPresented: $showingSettings) {
