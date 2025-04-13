@@ -14,6 +14,7 @@ class AppDataManager {
     private init() {}
     
     private let petKey = "SavedPet"
+    private let petTypeKey = "PetType"
     private let lastPlayedKey = "MinigameLastPlayed"
     private let currencyTransactionsKey = "CurrencyTransactions"
     private let lastDailyBonusKey = "LastDailyBonusDate"
@@ -28,22 +29,47 @@ class AppDataManager {
     
     // Save all app data
     func saveAllData(viewModel: PetViewModel) async {
-        // Save on a background thread
-        await MainActor.run {
-            if let encoded = try? JSONEncoder().encode(viewModel.pet) {
+        do {
+            // Encode and save the pet data
+            let encoded = try JSONEncoder().encode(viewModel.pet)
+            
+            // Save on the main thread since UserDefaults is UI-related
+            await MainActor.run {
                 userDefaults.set(encoded, forKey: petKey)
-                userDefaults.synchronize()
+                
+                // Also ensure the pet type is saved to our single source of truth
+                userDefaults.set(viewModel.pet.type.rawValue, forKey: petTypeKey)
             }
+        } catch {
+            print("Error saving pet data: \(error.localizedDescription)")
+            // Log error for analytics in a real app
         }
     }
     
     // MARK: - Load Methods
     
-    // Load pet data
+    // Load pet data with better error handling
     func loadPet() -> Pet? {
-        if let savedPetData = userDefaults.data(forKey: petKey),
-           let savedPet = try? JSONDecoder().decode(Pet.self, from: savedPetData) {
-            return savedPet
+        do {
+            if let savedPetData = userDefaults.data(forKey: petKey) {
+                return try JSONDecoder().decode(Pet.self, from: savedPetData)
+            } else {
+                print("No pet data found in UserDefaults")
+            }
+        } catch {
+            print("Error decoding pet data: \(error.localizedDescription)")
+            
+            // Check if we can recover the pet type at least
+            if let typeString = userDefaults.string(forKey: petTypeKey),
+               let type = PetType(rawValue: typeString) {
+                // Create a recovery pet with the correct type
+                print("Creating recovery pet with type: \(type.rawValue)")
+                return Pet(
+                    name: "Buddy", 
+                    type: type,
+                    birthDate: Date()
+                )
+            }
         }
         return nil
     }
@@ -70,7 +96,7 @@ class AppDataManager {
     
     // Create a new pet from onboarding
     func createNewPet(name: String, type: PetType) -> Pet {
-        print("DEBUG: AppDataManager creating new pet: \(name) the \(type.rawValue)")
+        print("AppDataManager creating new pet: \(name) the \(type.rawValue)")
         
         // Create a completely fresh pet with the specified type
         let newPet = Pet(
@@ -94,16 +120,13 @@ class AppDataManager {
         do {
             let encoded = try JSONEncoder().encode(newPet)
             userDefaults.set(encoded, forKey: petKey)
-            userDefaults.synchronize()
-            print("DEBUG: AppDataManager directly saved new pet to UserDefaults")
             
-            // Verify the save immediately
-            if let data = userDefaults.data(forKey: petKey),
-               let pet = try? JSONDecoder().decode(Pet.self, from: data) {
-                print("DEBUG: VERIFICATION - Pet type is: \(pet.type.rawValue)")
-            }
+            // Save pet type to our single source of truth
+            userDefaults.set(type.rawValue, forKey: petTypeKey)
+            
+            print("AppDataManager saved new pet to UserDefaults")
         } catch {
-            print("DEBUG: CRITICAL ERROR - Failed to encode pet: \(error)")
+            print("ERROR - Failed to encode pet: \(error)")
         }
         
         return newPet
@@ -131,6 +154,7 @@ class AppDataManager {
     // Clear all data (for testing or resetting)
     func clearAllData() {
         userDefaults.removeObject(forKey: petKey)
+        userDefaults.removeObject(forKey: petTypeKey)
         userDefaults.removeObject(forKey: lastPlayedKey)
         userDefaults.removeObject(forKey: currencyTransactionsKey)
         userDefaults.removeObject(forKey: lastDailyBonusKey)
@@ -153,51 +177,75 @@ class AppDataManager {
     
     // Export all data to a JSON file (for backup)
     func exportData() -> Data? {
-        var exportDict: [String: Any] = [:]
-        
-        // Add UserDefaults data
-        if let pet = loadPet(), let petData = try? JSONEncoder().encode(pet) {
-            exportDict["pet"] = petData.base64EncodedString()
+        do {
+            var exportDict: [String: Any] = [:]
+            
+            // Add UserDefaults data
+            if let pet = loadPet() {
+                if let petData = try? JSONEncoder().encode(pet) {
+                    exportDict["pet"] = petData.base64EncodedString()
+                    exportDict["petType"] = pet.type.rawValue // Export pet type separately too
+                }
+            }
+            
+            exportDict["dailyBonusStreak"] = userDefaults.integer(forKey: dailyBonusStreakKey)
+            if let lastBonusDate = userDefaults.object(forKey: lastDailyBonusKey) as? Date {
+                exportDict["lastDailyBonusDate"] = lastBonusDate.timeIntervalSince1970
+            }
+            
+            // Convert to JSON
+            let jsonData = try JSONSerialization.data(withJSONObject: exportDict, options: .prettyPrinted)
+            return jsonData
+        } catch {
+            print("Error exporting data: \(error.localizedDescription)")
+            return nil
         }
-        
-        exportDict["dailyBonusStreak"] = userDefaults.integer(forKey: dailyBonusStreakKey)
-        if let lastBonusDate = userDefaults.object(forKey: lastDailyBonusKey) as? Date {
-            exportDict["lastDailyBonusDate"] = lastBonusDate.timeIntervalSince1970
-        }
-        
-        // Convert to JSON
-        return try? JSONSerialization.data(withJSONObject: exportDict, options: .prettyPrinted)
     }
     
     // Import data from JSON (for restore)
     func importData(jsonData: Data) -> Bool {
         do {
-            guard let dict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            let dict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+            
+            guard let dictionary = dict else {
+                print("Error importing data: Invalid JSON format")
                 return false
             }
             
             // Restore pet data
-            if let petBase64 = dict["pet"] as? String,
-               let petData = Data(base64Encoded: petBase64),
-               let pet = try? JSONDecoder().decode(Pet.self, from: petData) {
-                if let encoded = try? JSONEncoder().encode(pet) {
-                    userDefaults.set(encoded, forKey: petKey)
+            if let petBase64 = dictionary["pet"] as? String {
+                if let petData = Data(base64Encoded: petBase64) {
+                    do {
+                        let pet = try JSONDecoder().decode(Pet.self, from: petData)
+                        let encoded = try JSONEncoder().encode(pet)
+                        userDefaults.set(encoded, forKey: petKey)
+                        
+                        // Also save pet type to our single source of truth
+                        userDefaults.set(pet.type.rawValue, forKey: petTypeKey)
+                    } catch {
+                        print("Error decoding pet data during import: \(error.localizedDescription)")
+                        
+                        // Try to recover pet type at least
+                        if let petType = dictionary["petType"] as? String {
+                            userDefaults.set(petType, forKey: petTypeKey)
+                        }
+                    }
                 }
             }
             
             // Restore other simple data
-            if let streak = dict["dailyBonusStreak"] as? Int {
+            if let streak = dictionary["dailyBonusStreak"] as? Int {
                 userDefaults.set(streak, forKey: dailyBonusStreakKey)
             }
             
-            if let lastBonusTimeInterval = dict["lastDailyBonusDate"] as? TimeInterval {
+            if let lastBonusTimeInterval = dictionary["lastDailyBonusDate"] as? TimeInterval {
                 let date = Date(timeIntervalSince1970: lastBonusTimeInterval)
                 userDefaults.set(date, forKey: lastDailyBonusKey)
             }
             
             return true
         } catch {
-            print("Error importing data: \(error)")
+            print("Error importing data: \(error.localizedDescription)")
             return false
         }
     }

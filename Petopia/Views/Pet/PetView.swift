@@ -20,6 +20,7 @@ struct PetView: View {
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.top, 2) // Reduce top padding to prevent cut-off
                     
                     // Settings icon placeholder on the left (for visual balance)
                     HStack {
@@ -35,7 +36,7 @@ struct PetView: View {
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.top, 8) // Reduce from 12 to 8 to prevent cut-off
                 
                 // Pet animation area (reduced size)
                 ZStack {
@@ -52,6 +53,8 @@ struct PetView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 160, height: 160)
+                        .accessibilityLabel("Your pet \(viewModel.pet.name), a \(viewModel.pet.type.rawValue)")
+                        .accessibilityHint("Current status: \(viewModel.pet.currentStatus.description)")
                         // Use a more controlled offset animation to prevent doubling
                         .offset(y: isAnimating ? -5 : 5)
                         // Keep the animation smooth
@@ -99,20 +102,27 @@ struct PetView: View {
                             .font(.caption)
                             .italic()
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 6) // Increased from 4 to 6
                     .padding(.horizontal, 12)
                     .background(Color.yellow.opacity(0.1))
-                    .cornerRadius(8)
+                    .cornerRadius(10) // Increased from 8 to 10
                     .padding(.horizontal)
+                    .padding(.top, 4) // Added top padding for better spacing
+                    .padding(.bottom, 4) // Added bottom padding for better spacing
                 }
                 
                 // Stats display with reduced spacing
                 VStack(spacing: 8) { // Reduced spacing between stats
                     StatBar(label: "Hunger", value: viewModel.pet.hunger, color: .orange)
+                        .accessibilityLabel("Hunger: \(Int(viewModel.pet.hunger))%")
                     StatBar(label: "Happiness", value: viewModel.pet.happiness, color: .yellow)
+                        .accessibilityLabel("Happiness: \(Int(viewModel.pet.happiness))%")
                     StatBar(label: "Health", value: viewModel.pet.health, color: .green)
+                        .accessibilityLabel("Health: \(Int(viewModel.pet.health))%")
                     StatBar(label: "Cleanliness", value: viewModel.pet.cleanliness, color: .blue)
+                        .accessibilityLabel("Cleanliness: \(Int(viewModel.pet.cleanliness))%")
                     StatBar(label: "Energy", value: viewModel.pet.energy, color: .purple)
+                        .accessibilityLabel("Energy: \(Int(viewModel.pet.energy))%")
                     
                     Text("Experience: \(viewModel.pet.experience)/\(viewModel.pet.level * 100)")
                         .font(.caption)
@@ -154,46 +164,6 @@ struct PetView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, 3)
-                
-                // Pet accessories section
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Accessories:")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    HStack(spacing: 12) {
-                        ForEach(viewModel.pet.accessories) { accessory in
-                            VStack {
-                                Image(systemName: accessoryIcon(for: accessory.position))
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.blue)
-                                    .frame(width: 30, height: 30)
-                                    .background(Color.blue.opacity(0.1))
-                                    .clipShape(Circle())
-                                
-                                Text(accessory.name)
-                                    .font(.caption2)
-                                    .lineLimit(1)
-                            }
-                        }
-                        
-                        // Show empty slots for missing accessories
-                        if !viewModel.pet.accessories.contains(where: { $0.position == .head }) {
-                            emptyAccessorySlot(position: .head)
-                        }
-                        
-                        if !viewModel.pet.accessories.contains(where: { $0.position == .neck }) {
-                            emptyAccessorySlot(position: .neck)
-                        }
-                        
-                        if !viewModel.pet.accessories.contains(where: { $0.position == .body }) {
-                            emptyAccessorySlot(position: .body)
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                }
-                .padding(.horizontal)
-                .padding(.top, 3)
             }
             
             Spacer() // Use remaining space
@@ -203,28 +173,55 @@ struct PetView: View {
                 Divider()
                 
                 HStack(spacing: 30) {
-                    SmallerActionButton(title: "Feed", systemImage: "fork.knife") {
-                        if let food = viewModel.availableFood.first {
-                            viewModel.feed(food: food)
-                        }
-                    }
+                    // Feed button - colored based on hunger level
+                    SmallerActionButton(
+                        title: "Feed", 
+                        systemImage: "fork.knife",
+                        action: {
+                            if let food = viewModel.availableFood.first {
+                                viewModel.feed(food: food)
+                            }
+                        },
+                        isPrimaryAction: viewModel.pet.hunger < 40,
+                        buttonColor: viewModel.pet.hunger < 30 ? .orange : .blue,
+                        isDisabled: viewModel.availableFood.isEmpty || viewModel.pet.hunger >= 100,
+                        disabledMessage: viewModel.pet.hunger >= 100 ? "Pet is full" : "No food available"
+                    )
                     
-                    SmallerActionButton(title: "Clean", systemImage: "shower.fill") {
-                        viewModel.clean()
-                    }
+                    // Clean button - colored based on cleanliness level
+                    SmallerActionButton(
+                        title: "Clean",
+                        systemImage: "shower.fill",
+                        action: {
+                            viewModel.clean()
+                        },
+                        isPrimaryAction: viewModel.pet.cleanliness < 40,
+                        buttonColor: viewModel.pet.cleanliness < 30 ? .cyan : .blue,
+                        isDisabled: viewModel.pet.cleanliness >= 100,
+                        disabledMessage: "Already clean"
+                    )
                     
-                    SmallerActionButton(title: "Sleep", systemImage: "moon.fill") {
-                        viewModel.sleep(hours: 2)
-                    }
+                    // Sleep button - colored based on energy level
+                    SmallerActionButton(
+                        title: "Sleep",
+                        systemImage: "moon.fill",
+                        action: {
+                            viewModel.sleep(hours: 2)
+                        },
+                        isPrimaryAction: viewModel.pet.energy < 40,
+                        buttonColor: viewModel.pet.energy < 30 ? .purple : .blue,
+                        isDisabled: viewModel.pet.energy >= 100,
+                        disabledMessage: "Not tired"
+                    )
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, 16)
                 .background(Color(UIColor.systemBackground))
             }
         }
         // Add safe area respect
         .ignoresSafeArea(edges: .bottom)
-        // Add specific extra padding for the tab bar
-        .padding(.bottom, 60)
+        // Increase bottom padding to prevent overlap with tab bar
+        .padding(.bottom, 80)
     }
     
     // Helper function to get the evolution level
@@ -324,19 +321,134 @@ struct SmallerActionButton: View {
     let title: String
     let systemImage: String
     let action: () -> Void
+    var isPrimaryAction: Bool = false
+    var buttonColor: Color = .blue
+    var isDisabled: Bool = false
+    var disabledMessage: String = "Not available" // Add default message
+    @State private var isPressed = false
+    @State private var isActionTriggered = false
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 18))
-                Text(title)
-                    .font(.caption2)
+        Button(action: {
+            if !isDisabled {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    isPressed = true
+                }
+                
+                // Set the action triggered flag for micro-animation
+                withAnimation {
+                    isActionTriggered = true
+                }
+                
+                // Add a slight delay before performing the action and resetting the animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    action()
+                    
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isPressed = false
+                    }
+                    
+                    // Reset the action trigger after animation completes
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        withAnimation {
+                            isActionTriggered = false
+                        }
+                    }
+                }
             }
-            .frame(width: 60, height: 40)
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
+        }) {
+            VStack(spacing: 4) {
+                ZStack {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 20, weight: .semibold))
+                    
+                    // Action triggered animation overlay
+                    if isActionTriggered {
+                        Circle()
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 30, height: 30)
+                            .scaleEffect(isActionTriggered ? 2 : 0)
+                            .opacity(isActionTriggered ? 0 : 1)
+                            .animation(.easeOut(duration: 0.5), value: isActionTriggered)
+                    }
+                }
+                
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .frame(width: 70, height: 48)
+            .background(
+                // Gradient background with dynamic color based on status/availability
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        isDisabled ? Color.gray : buttonColor,
+                        isDisabled ? Color.gray.opacity(0.7) : buttonColor.opacity(0.8)
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .foregroundColor(isDisabled ? .gray.opacity(0.6) : .white)
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(isDisabled ? 0.05 : 0.15), radius: 3, x: 0, y: 2)
+            // Add scale effect when pressed - only if not disabled
+            .scaleEffect((isPressed && !isDisabled) ? 0.95 : 1.0)
+            // Add slight upward movement for 3D effect when pressed
+            .offset(y: (isPressed && !isDisabled) ? 2 : 0)
+            // Add shine effect for primary action buttons
+            .overlay(
+                isPrimaryAction && !isDisabled ? 
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.white.opacity(0.2),
+                            Color.white.opacity(0.1),
+                            Color.clear
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .cornerRadius(12)
+                : nil
+            )
+            // Add a text overlay for disabled buttons to explain why
+            .overlay(
+                isDisabled ?
+                    VStack {
+                        Spacer()
+                        Text(disabledMessage)
+                            .font(.system(size: 9))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(0.5))
+                            .cornerRadius(4)
+                            .padding(.bottom, 4)
+                    }
+                : nil
+            )
+            // Add interactive spring animation
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            .opacity(isDisabled ? 0.7 : 1.0)
+            .accessibilityLabel("\(title) \(isDisabled ? disabledMessage : "")")
+            .accessibilityHint(getAccessibilityHint())
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(isDisabled ? [] : .isButton)
+        }
+        .buttonStyle(PlainButtonStyle()) // Use plain style to customize our own feedback
+        .disabled(isDisabled)
+    }
+    
+    // Add a helper method for accessibility hints
+    private func getAccessibilityHint() -> String {
+        switch title {
+        case "Feed":
+            return "Feeds your pet to increase hunger level"
+        case "Clean":
+            return "Cleans your pet to increase cleanliness"
+        case "Sleep":
+            return "Puts your pet to sleep to recover energy"
+        default:
+            return "Interacts with your pet"
         }
     }
 }

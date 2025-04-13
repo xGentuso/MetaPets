@@ -30,6 +30,9 @@ class CurrencyManager {
     // Transaction history
     private(set) var transactions: [CurrencyTransaction] = []
     
+    // Maximum number of transactions to keep in history
+    private let maxTransactionHistory = 100
+    
     private init() {
         loadTransactions()
     }
@@ -47,8 +50,7 @@ class CurrencyManager {
             date: Date()
         )
         
-        transactions.append(transaction)
-        saveTransactions()
+        addTransaction(transaction)
     }
     
     // Spend currency with a description of what it was spent on
@@ -67,10 +69,21 @@ class CurrencyManager {
             date: Date()
         )
         
-        transactions.append(transaction)
-        saveTransactions()
+        addTransaction(transaction)
         
         return true
+    }
+    
+    // Add transaction and maintain history size
+    private func addTransaction(_ transaction: CurrencyTransaction) {
+        transactions.append(transaction)
+        
+        // Limit transaction history size
+        if transactions.count > maxTransactionHistory {
+            transactions = Array(transactions.suffix(maxTransactionHistory))
+        }
+        
+        saveTransactions()
     }
     
     // Get daily bonus amount based on streak

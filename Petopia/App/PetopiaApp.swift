@@ -53,7 +53,6 @@ struct Petopia: App {
             }
             AppDataManager.shared.clearAllData()
             AppDataManager.shared.setOnboardingComplete(false)
-            UserDefaults.standard.synchronize()
             print("DEBUG: Cleared all data and reset onboarding")
         }
         #endif
@@ -209,37 +208,34 @@ struct Petopia: App {
     
     // Handle onboarding completion - moved to a separate function
     private func handleOnboardingCompletion() {
-        print("DEBUG: CRITICAL: ************* ONBOARDING COMPLETED - HANDLING COMPLETION *************")
+        print("Onboarding completed - handling completion")
         
-        // Ensure we're really marking onboarding as complete
+        // Ensure we're marking onboarding as complete
         AppDataManager.shared.setOnboardingComplete(true)
-        UserDefaults.standard.synchronize()
         
         // Force a reload of the saved pet data
         if let newPet = AppDataManager.shared.loadPet() {
-            print("DEBUG: CRITICAL: Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
+            print("Loaded new pet: \(newPet.name) the \(newPet.type.rawValue)")
             
             // Replace the existing viewModel with the new one
             viewModel.updateWithNewPet(newPet)
             
             // Transition to main app view after a slight delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                print("DEBUG: CRITICAL: ************* TRANSITIONING TO MAIN APP *************")
+                print("Transitioning to main app")
                 // Set app state to mainApp, which will trigger a full view hierarchy change
                 self.appState = .mainApp
                 
                 // Also refresh view ID to force a complete rebuild
                 self.appRefreshID = UUID()
-                
-                print("DEBUG: CRITICAL: App state changed to: \(self.appState)")
             }
         } else {
-            print("DEBUG: CRITICAL: Failed to load pet after onboarding - EMERGENCY FALLBACK")
+            print("Failed to load pet after onboarding - Emergency fallback")
             
             // EMERGENCY FALLBACK: Try to create a default pet if loading fails
             let defaultPet = Pet(name: onboardingViewModel.petName, 
-                                type: onboardingViewModel.selectedPetType ?? .cat,
-                                birthDate: Date())
+                               type: onboardingViewModel.selectedPetType ?? .cat,
+                               birthDate: Date())
             
             viewModel.updateWithNewPet(defaultPet)
             
@@ -247,7 +243,6 @@ struct Petopia: App {
             DispatchQueue.main.async {
                 self.appState = .mainApp
                 self.appRefreshID = UUID()
-                print("DEBUG: CRITICAL: Emergency fallback complete - App state: \(self.appState)")
             }
         }
     }
