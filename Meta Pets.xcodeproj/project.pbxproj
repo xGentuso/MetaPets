@@ -11,9 +11,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		8CF2FF852D8CB8120029C2D1 /* Petopia */ = {
+		8CF2FF852D8CB8120029C2D1 /* MetaPets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Petopia;
+			path = MetaPets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		8CF2FF7A2D8CB8120029C2D1 = {
 			isa = PBXGroup;
 			children = (
-				8CF2FF852D8CB8120029C2D1 /* Petopia */,
+				8CF2FF852D8CB8120029C2D1 /* MetaPets */,
 				8CF2FF842D8CB8120029C2D1 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -61,12 +61,12 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8CF2FF852D8CB8120029C2D1 /* Petopia */,
+				8CF2FF852D8CB8120029C2D1 /* MetaPets */,
 			);
 			name = "Meta Pets";
 			packageProductDependencies = (
 			);
-			productName = Petopia;
+			productName = MetaPets;
 			productReference = 8CF2FF832D8CB8120029C2D1 /* Meta Pets.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -249,9 +249,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"Petopia/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"MetaPets/Preview Content\"";
 				DEVELOPMENT_TEAM = LN2HJ678YH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -267,6 +268,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.triosRM.MetaPets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -278,9 +280,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"Petopia/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"MetaPets/Preview Content\"";
 				DEVELOPMENT_TEAM = LN2HJ678YH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -296,6 +299,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.triosRM.MetaPets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

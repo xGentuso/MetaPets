@@ -1,5 +1,5 @@
 //
-//  PetopiaApp.swift
+//  MetaPetsApp.swift
 //  Meta Pets
 //
 //  Created by ryan mota on 2025-03-20.
@@ -249,41 +249,41 @@ struct MetaPets: App {
     
     // Create an automatic backup when app goes to background
     private func createAutoBackup() {
-        #if DEBUG
-        print("Skipping auto-backup in debug mode")
-        #else
-        // In production, create a backup file in app's documents directory
-        if let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let backupURL = documentsDirectory.appendingPathComponent("metapets_autobackup.json")
-            
-            if let data = AppDataManager.shared.exportData() {
-                do {
-                    try data.write(to: backupURL)
-                    print("Auto-backup created successfully")
-                } catch {
-                    print("Failed to create auto-backup: \(error)")
-                }
+        Task {
+            do {
+                let backupData = try await BackupManager.shared.createBackup(viewModel: viewModel)
+                let backupPath = try BackupManager.shared.saveAutoBackup(data: backupData)
+                print("Created auto-backup at: \(backupPath)")
+            } catch {
+                print("Failed to create auto-backup: \(error)")
             }
         }
-        #endif
     }
     
-    // Handle backup file opening (for restore)
+    // Handle backup file opened from another app
     private func handleBackupFileOpen(_ url: URL) {
-        let success = DataMigrationHelper.shared.restoreFromBackup(fileURL: url)
-        
-        backupMessage = success ?
-            "Your pet data has been successfully restored. The app will now restart." :
-            "There was a problem restoring the backup. Please try again with a different file."
-        
-        isBackupSuccess = success
-        showingBackupRestoreAlert = true
-        
-        if success {
-            // Restart the app after successful restore
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                exit(0) // Force restart to load new data
+        Task {
+            do {
+                let result = try await BackupManager.shared.restoreFromFile(url: url, viewModel: viewModel)
+                
+                await MainActor.run {
+                    isBackupSuccess = true
+                    backupMessage = "Your pet has been restored successfully!"
+                    showingBackupRestoreAlert = true
+                    
+                    // Force refresh the app
+                    appRefreshID = UUID()
+                }
+                
+                print("Backup restored successfully: \(result)")
+            } catch {
+                await MainActor.run {
+                    isBackupSuccess = false
+                    backupMessage = "Failed to restore backup: \(error.localizedDescription)"
+                    showingBackupRestoreAlert = true
+                }
+                print("Failed to restore backup: \(error)")
             }
         }
     }
-}
+} 
