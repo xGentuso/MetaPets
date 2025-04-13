@@ -78,17 +78,11 @@ struct PetView: View {
                 .onAppear {
                     // Set animation flag only once on appear
                     isAnimating = true
-                    print("DEBUG: PetView appeared with pet type: \(viewModel.pet.type.rawValue)")
+                    print("DEBUG: PetView animation area appeared with pet type: \(viewModel.pet.type.rawValue)")
                     
                     // Force refresh the view when it appears to ensure correct pet type is shown
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         viewModel.objectWillChange.send()
-                    }
-                    
-                    // Verify pet type one more time on view appear
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        print("DEBUG: CRITICAL: Re-verifying pet type on view appear")
-                        viewModel.verifyAndRefreshPetType()
                     }
                 }
                 
@@ -222,6 +216,14 @@ struct PetView: View {
         .ignoresSafeArea(edges: .bottom)
         // Increase bottom padding to prevent overlap with tab bar
         .padding(.bottom, 80)
+        .onAppear {
+            // Notify the ViewModel that the view appeared
+            viewModel.viewDidAppear()
+        }
+        .onDisappear {
+            // Notify the ViewModel that the view disappeared
+            viewModel.viewDidDisappear()
+        }
     }
     
     // Helper function to get the evolution level

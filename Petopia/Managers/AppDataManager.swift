@@ -11,6 +11,27 @@ class AppDataManager {
     static let shared = AppDataManager()
     private let userDefaults = UserDefaults.standard
     
+    // Define app-specific errors for better error handling
+    enum AppDataError: Error {
+        case encodingFailed(String)
+        case decodingFailed(String)
+        case dataNotFound(String)
+        case invalidData(String)
+        
+        var description: String {
+            switch self {
+            case .encodingFailed(let message):
+                return "Failed to encode data: \(message)"
+            case .decodingFailed(let message):
+                return "Failed to decode data: \(message)"
+            case .dataNotFound(let message):
+                return "Data not found: \(message)"
+            case .invalidData(let message):
+                return "Invalid data: \(message)"
+            }
+        }
+    }
+    
     private init() {}
     
     private let petKey = "SavedPet"
@@ -27,7 +48,7 @@ class AppDataManager {
     
     // MARK: - Save Methods
     
-    // Save all app data
+    // Save all app data with improved error handling
     func saveAllData(viewModel: PetViewModel) async {
         do {
             // Encode and save the pet data
@@ -37,41 +58,102 @@ class AppDataManager {
             await MainActor.run {
                 userDefaults.set(encoded, forKey: petKey)
                 
-                // Also ensure the pet type is saved to our single source of truth
+                // We'll still save the type separately, but only as a backup mechanism
+                // This won't be used for normal operation, only for data recovery
                 userDefaults.set(viewModel.pet.type.rawValue, forKey: petTypeKey)
             }
         } catch {
-            print("Error saving pet data: \(error.localizedDescription)")
-            // Log error for analytics in a real app
+            // Log detailed error information
+            let errorMessage = "Error saving pet data: \(error.localizedDescription)"
+            print(errorMessage)
+            
+            // In a production app, you might want to track these errors in analytics
+            #if DEBUG
+            assertionFailure(errorMessage)
+            #endif
+            
+            // Try a simpler backup approach by at least saving the type
+            await MainActor.run {
+                userDefaults.set(viewModel.pet.type.rawValue, forKey: petTypeKey)
+            }
         }
+    }
+    
+    // MARK: - Pet Type Management
+    
+    // Get the pet type - always derived from saved pet or new default
+    func getPetType() -> PetType {
+        // Always try to get the type from the actual pet first
+        if let pet = loadPet() {
+            return pet.type
+        }
+        
+        // Emergency fallback only if pet can't be loaded
+        if let typeString = userDefaults.string(forKey: petTypeKey),
+           let type = PetType(rawValue: typeString) {
+            return type
+        }
+        
+        // Default if all else fails
+        return .cat
     }
     
     // MARK: - Load Methods
     
-    // Load pet data with better error handling
+    // Load pet data with better error handling and recovery strategies
     func loadPet() -> Pet? {
         do {
+            // Try to load the full pet data
             if let savedPetData = userDefaults.data(forKey: petKey) {
                 return try JSONDecoder().decode(Pet.self, from: savedPetData)
             } else {
                 print("No pet data found in UserDefaults")
+                // This is a normal state for first-time users, not an error
             }
         } catch {
-            print("Error decoding pet data: \(error.localizedDescription)")
+            let errorMessage = "Error decoding pet data: \(error.localizedDescription)"
+            print(errorMessage)
             
-            // Check if we can recover the pet type at least
+            // Log specific details about the error
+            if let decodingError = error as? DecodingError {
+                switch decodingError {
+                case .dataCorrupted(let context):
+                    print("Data corrupted: \(context.debugDescription)")
+                case .keyNotFound(let key, let context):
+                    print("Key not found: \(key.stringValue) in \(context.debugDescription)")
+                case .typeMismatch(let type, let context):
+                    print("Type mismatch: expected \(type) in \(context.debugDescription)")
+                case .valueNotFound(let type, let context):
+                    print("Value not found: expected \(type) in \(context.debugDescription)")
+                @unknown default:
+                    print("Unknown decoding error")
+                }
+            }
+            
+            // In a production app, you might want to track these errors in analytics
+            #if DEBUG
+            // Don't crash in production, just log in debug
+            assertionFailure(errorMessage)
+            #endif
+            
+            // Recovery strategy: Try to create a new pet with the backed-up type
             if let typeString = userDefaults.string(forKey: petTypeKey),
                let type = PetType(rawValue: typeString) {
-                // Create a recovery pet with the correct type
                 print("Creating recovery pet with type: \(type.rawValue)")
-                return Pet(
-                    name: "Buddy", 
-                    type: type,
-                    birthDate: Date()
-                )
+                return createRecoveryPet(with: type)
             }
         }
         return nil
+    }
+    
+    // Create a recovery pet with minimal data when the main pet object fails to load
+    private func createRecoveryPet(with type: PetType) -> Pet {
+        print("RECOVERY: Creating minimal pet with type \(type.rawValue)")
+        return Pet(
+            name: "Buddy", 
+            type: type,
+            birthDate: Date()
+        )
     }
     
     // Load streak data

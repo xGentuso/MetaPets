@@ -23,54 +23,93 @@ class PetViewModel: ObservableObject {
     private var timer: AnyCancellable?
     private var autoSaveTimer: AnyCancellable?
     
-    // Replace the static helper method with a simpler version
+    // Mark when the ViewModel is active
+    private var isActive = false
+    
+    // Updated method to use AppDataManager
     static func getStoredPetType() -> PetType {
-        // Use a direct UserDefaults key for pet type - primary source of truth
-        if let typeString = UserDefaults.standard.string(forKey: "PetType"),
-           let type = PetType(rawValue: typeString) {
-            return type
+        return AppDataManager.shared.getPetType()
+    }
+    
+    // We don't need this anymore - pet type is stored with the pet
+    private func savePetType() {
+        // Method intentionally left empty - pet type is now
+        // automatically saved when we save the Pet object
+    }
+    
+    // Verify the pet type - no longer needed as we're using a single source of truth
+    func verifyAndRefreshPetType() {
+        // This method remains for backwards compatibility but does nothing
+        print("Pet type verification no longer needed - using single source of truth")
+    }
+    
+    // Private auto-save method
+    private func autoSave() {
+        Task { [weak self] in
+            guard let self = self else { return }
+            await AppDataManager.shared.saveAllData(viewModel: self)
+        }
+    }
+    
+    deinit {
+        print("PetViewModel deinitializing - cleaning up timers")
+        stopAllTimers()
+    }
+    
+    // Stop all timers
+    private func stopAllTimers() {
+        print("Stopping all timers")
+        timer?.cancel()
+        timer = nil
+        autoSaveTimer?.cancel()
+        autoSaveTimer = nil
+    }
+    
+    // Start all timers
+    private func startAllTimers() {
+        print("Starting all timers")
+        
+        // Only start if not already active
+        if timer == nil {
+            // Set up the main update timer
+            timer = Timer.publish(every: 60, on: .main, in: .common)
+                .autoconnect()
+                .sink { [weak self] _ in
+                    self?.updatePetWithTimeElapsed()
+                }
         }
         
-        // Default to cat if not found
-        return .cat
-    }
-    
-    // Replace the verification methods with a simpler approach
-    private func savePetType() {
-        // Save pet type to UserDefaults using the single key
-        UserDefaults.standard.set(pet.type.rawValue, forKey: "PetType")
-    }
-    
-    // Replace the complex pet type verification with a simpler method
-    private func verifyPetType() {
-        // Get the stored pet type from our single source of truth
-        if let typeString = UserDefaults.standard.string(forKey: "PetType"),
-           let storedType = PetType(rawValue: typeString) {
-            
-            // Only update if they don't match
-            if pet.type != storedType {
-                print("Updating pet type from \(pet.type.rawValue) to \(storedType.rawValue)")
-                pet.type = storedType
-                objectWillChange.send()
-            }
-        } else {
-            // If no type is stored, store the current one
-            UserDefaults.standard.set(pet.type.rawValue, forKey: "PetType")
+        // Setup auto-save timer (every 5 minutes)
+        if autoSaveTimer == nil {
+            autoSaveTimer = Timer.publish(every: 300, on: .main, in: .common)
+                .autoconnect()
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    Task {
+                        await AppDataManager.shared.saveAllData(viewModel: self)
+                    }
+                }
         }
     }
     
-    // Replace the saveUpdatedPet method with a simplified version
-    private func saveUpdatedPet() {
-        // Save the pet object
-        do {
-            let encoded = try JSONEncoder().encode(pet)
-            UserDefaults.standard.set(encoded, forKey: "SavedPet")
-            
-            // Also save the pet type to our single source
-            savePetType()
-        } catch {
-            print("Error saving pet: \(error)")
-        }
+    // Public method to notify when the ViewModel's view appears
+    func viewDidAppear() {
+        print("PetViewModel view did appear")
+        isActive = true
+        startAllTimers()
+    }
+    
+    // Public method to notify when the ViewModel's view disappears
+    func viewDidDisappear() {
+        print("PetViewModel view did disappear")
+        isActive = false
+        
+        // Immediately save the current state
+        autoSave()
+        
+        // We could stop timers here, but it would stop background updates
+        // Instead, we'll keep timers running for background updates
+        // stopAllTimers()
     }
     
     init(pet: Pet? = nil) {
@@ -83,14 +122,12 @@ class PetViewModel: ObservableObject {
         if let providedPet = pet {
             print("Using provided pet with type: \(providedPet.type.rawValue)")
             self.pet = providedPet
-            savePetType() // Save the type to our single source
         } else if let savedPet = AppDataManager.shared.loadPet() {
             print("Loading saved pet: \(savedPet.name) the \(savedPet.type.rawValue)")
             self.pet = savedPet
-            savePetType() // Save the type to our single source
         } else {
             print("Creating default pet")
-            // Use our simplified method to get the pet type
+            // Use our AppDataManager method to get the pet type
             let petType = PetViewModel.getStoredPetType()
             self.pet = Pet(
                 name: "Buddy",
@@ -103,15 +140,13 @@ class PetViewModel: ObservableObject {
         loadItems()
         loadCurrencyData()
         refreshMinigames()
-        setupTimers() // This will set up all timers
+        
+        // Don't start timers here, wait until view appears
+        
+        // Save the pet to ensure it's properly stored
+        autoSave()
         
         print("PetViewModel initialization complete with pet type: \(self.pet.type.rawValue)")
-    }
-    
-    deinit {
-        print("PetViewModel deinitializing - cleaning up timers")
-        timer?.cancel()
-        autoSaveTimer?.cancel()
     }
     
     private func loadItems() {
@@ -371,79 +406,74 @@ class PetViewModel: ObservableObject {
         return DailiesManager.shared.dailyActivities
     }
     
+    // Method to ensure consistency in data saving
+    private func updatePetStateAndSave(action: () -> Void) {
+        // Execute the action that modifies pet state
+        action()
+        
+        // Save the updated state
+        autoSave()
+        
+        // Track relevant achievements
+        trackAchievements()
+    }
+    
     // Actions with currency rewards
     func feed(food: Food) {
-        pet.feed(food: food)
-        
-        // Earn some currency for feeding
-        earnCurrency(amount: 5, description: "Fed pet with \(food.name)")
-        
-        // Track feeding achievement
-        AchievementManager.shared.trackFeeding()
-        
-        // Check for other achievements
-        trackAchievements()
-        
-        autoSave() // Save after feeding
+        updatePetStateAndSave {
+            pet.feed(food: food)
+            
+            // Earn some currency for feeding
+            earnCurrency(amount: 5, description: "Fed pet with \(food.name)")
+            
+            // Track feeding achievement
+            AchievementManager.shared.trackFeeding()
+        }
     }
     
     func play(game: Game) {
-        pet.play(game: game)
-        
-        // Earn some currency for playing
-        earnCurrency(amount: 8, description: "Played \(game.name) with pet")
-        
-        // Check for achievements
-        trackAchievements()
-        
-        autoSave() // Save after playing
+        updatePetStateAndSave {
+            pet.play(game: game)
+            
+            // Earn some currency for playing
+            earnCurrency(amount: 8, description: "Played \(game.name) with pet")
+        }
     }
     
     func clean() {
-        pet.clean()
-        
-        // Earn some currency for cleaning
-        earnCurrency(amount: 6, description: "Cleaned pet")
-        
-        // Track cleaning achievement
-        AchievementManager.shared.trackCleaning()
-        
-        // Check for other achievements
-        trackAchievements()
-        
-        autoSave() // Save after cleaning
-    }
-    
-    func heal(medicine: Medicine) {
-        pet.heal(medicine: medicine)
-        
-        // Earn some currency for healing (only if pet was sick)
-        if pet.health < 50 {
-            earnCurrency(amount: 10, description: "Healed pet when sick")
+        updatePetStateAndSave {
+            pet.clean()
+            
+            // Earn some currency for cleaning
+            earnCurrency(amount: 5, description: "Cleaned pet")
+            
+            // Track cleaning achievement
+            AchievementManager.shared.trackCleaning()
         }
-        
-        // Track healing achievement
-        AchievementManager.shared.trackHealing()
-        
-        // Check for other achievements
-        trackAchievements()
-        
-        autoSave() // Save after healing
     }
     
     func sleep(hours: Int) {
-        pet.sleep(hours: hours)
-        
-        // Earn some currency for proper rest
-        earnCurrency(amount: hours * 2, description: "Pet slept for \(hours) hours")
-        
-        // Track sleeping achievement
-        AchievementManager.shared.trackSleeping(hours: hours)
-        
-        // Check for other achievements
-        trackAchievements()
-        
-        autoSave() // Save after sleeping
+        updatePetStateAndSave {
+            pet.sleep(hours: hours)
+            
+            // Earn some currency for sleep care
+            earnCurrency(amount: 3 * hours, description: "Let pet sleep for \(hours) hours")
+            
+            // Track sleep achievement
+            AchievementManager.shared.trackSleeping(hours: hours)
+        }
+    }
+    
+    func heal(medicine: Medicine) {
+        updatePetStateAndSave {
+            pet.heal(medicine: medicine)
+            
+            // Earn some currency for health care
+            earnCurrency(amount: 10, description: "Healed pet with \(medicine.name)")
+            
+            // Track medicine achievement
+            AchievementManager.shared.trackHealing()
+        }
     }
     
     // Purchase methods
@@ -497,15 +527,6 @@ class PetViewModel: ObservableObject {
     func removeAccessory(at position: Accessory.AccessoryPosition) {
         pet.accessories.removeAll { $0.position == position }
         autoSave() // Save after removing accessory
-    }
-    
-    // Save data
-    private func autoSave() {
-        // Use AppDataManager to save all data with Task to handle async call
-        Task { [weak self] in
-            guard let self = self else { return }
-            await AppDataManager.shared.saveAllData(viewModel: self)
-        }
     }
     
     // Reset the view model state with a new pet
@@ -573,11 +594,9 @@ class PetViewModel: ObservableObject {
     func forceRefresh() {
         print("DEBUG: CRITICAL: Refreshing pet view model")
         
-        // Get the correct pet type from UserDefaults
-        if let typeString = UserDefaults.standard.string(forKey: "SelectedPetType"),
-           let storedType = PetType(rawValue: typeString),
-           pet.type != storedType {
-            
+        // Get the correct pet type from AppDataManager
+        let storedType = AppDataManager.shared.getPetType()
+        if pet.type != storedType {
             print("DEBUG: CRITICAL: Updating pet type from \(pet.type.rawValue) to \(storedType.rawValue)")
             pet.type = storedType
             
@@ -588,29 +607,7 @@ class PetViewModel: ObservableObject {
     
     // Replace the duplicate timer setup with a single unified method
     private func setupTimers() {
-        print("Setting up all timers")
-        
-        // Set up the main update timer
-        timer = Timer.publish(every: 60, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.updatePetWithTimeElapsed()
-            }
-        
-        // Setup auto-save timer (every 5 minutes)
-        autoSaveTimer = Timer.publish(every: 300, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                Task {
-                    await AppDataManager.shared.saveAllData(viewModel: self)
-                }
-            }
-    }
-    
-    // Update the public verification method
-    func verifyAndRefreshPetType() {
-        verifyPetType() 
-        objectWillChange.send()
+        // This is now a deprecated method, using startAllTimers() instead
+        startAllTimers()
     }
 }
