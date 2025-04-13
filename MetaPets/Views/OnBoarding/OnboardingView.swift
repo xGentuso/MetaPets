@@ -50,7 +50,7 @@ struct OnboardingView: View {
                 .scaledToFit()
                 .frame(width: 200, height: 200)
             
-            Text("Welcome to Petopia!")
+            Text("Welcome to Meta Pets!")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)

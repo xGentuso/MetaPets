@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		8CF2FF832D8CB8120029C2D1 /* Petopia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Petopia.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CF2FF832D8CB8120029C2D1 /* Meta Pets.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Meta Pets.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		8CF2FF842D8CB8120029C2D1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				8CF2FF832D8CB8120029C2D1 /* Petopia.app */,
+				8CF2FF832D8CB8120029C2D1 /* Meta Pets.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		8CF2FF822D8CB8120029C2D1 /* Petopia */ = {
+		8CF2FF822D8CB8120029C2D1 /* Meta Pets */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8CF2FF912D8CB8140029C2D1 /* Build configuration list for PBXNativeTarget "Petopia" */;
+			buildConfigurationList = 8CF2FF912D8CB8140029C2D1 /* Build configuration list for PBXNativeTarget "Meta Pets" */;
 			buildPhases = (
 				8CF2FF7F2D8CB8120029C2D1 /* Sources */,
 				8CF2FF802D8CB8120029C2D1 /* Frameworks */,
@@ -63,11 +63,11 @@
 			fileSystemSynchronizedGroups = (
 				8CF2FF852D8CB8120029C2D1 /* Petopia */,
 			);
-			name = Petopia;
+			name = "Meta Pets";
 			packageProductDependencies = (
 			);
 			productName = Petopia;
-			productReference = 8CF2FF832D8CB8120029C2D1 /* Petopia.app */;
+			productReference = 8CF2FF832D8CB8120029C2D1 /* Meta Pets.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 8CF2FF7E2D8CB8120029C2D1 /* Build configuration list for PBXProject "Petopia" */;
+			buildConfigurationList = 8CF2FF7E2D8CB8120029C2D1 /* Build configuration list for PBXProject "Meta Pets" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				8CF2FF822D8CB8120029C2D1 /* Petopia */,
+				8CF2FF822D8CB8120029C2D1 /* Meta Pets */,
 			);
 		};
 /* End PBXProject section */
@@ -265,7 +265,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.triosRM.Petopia;
+				PRODUCT_BUNDLE_IDENTIFIER = com.triosRM.MetaPets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -294,7 +294,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.triosRM.Petopia;
+				PRODUCT_BUNDLE_IDENTIFIER = com.triosRM.MetaPets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -305,7 +305,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		8CF2FF7E2D8CB8120029C2D1 /* Build configuration list for PBXProject "Petopia" */ = {
+		8CF2FF7E2D8CB8120029C2D1 /* Build configuration list for PBXProject "Meta Pets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8CF2FF8F2D8CB8140029C2D1 /* Debug */,
@@ -314,7 +314,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8CF2FF912D8CB8140029C2D1 /* Build configuration list for PBXNativeTarget "Petopia" */ = {
+		8CF2FF912D8CB8140029C2D1 /* Build configuration list for PBXNativeTarget "Meta Pets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8CF2FF922D8CB8140029C2D1 /* Debug */,

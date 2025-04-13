@@ -1,6 +1,6 @@
 //
 //  PetopiaApp.swift
-//  Petopia
+//  Meta Pets
 //
 //  Created by ryan mota on 2025-03-20.
 //
@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct Petopia: App {
+struct MetaPets: App {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: PetViewModel
     @StateObject private var onboardingViewModel = OnboardingViewModel()
@@ -254,7 +254,7 @@ struct Petopia: App {
         #else
         // In production, create a backup file in app's documents directory
         if let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let backupURL = documentsDirectory.appendingPathComponent("petopia_autobackup.json")
+            let backupURL = documentsDirectory.appendingPathComponent("metapets_autobackup.json")
             
             if let data = AppDataManager.shared.exportData() {
                 do {

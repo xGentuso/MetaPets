@@ -63,7 +63,7 @@ class DataMigrationHelper {
         
         // Create a temporary file
         let temporaryDirectoryURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let backupFileURL = temporaryDirectoryURL.appendingPathComponent("petopia_backup_\(Date().timeIntervalSince1970).json")
+        let backupFileURL = temporaryDirectoryURL.appendingPathComponent("metapets_backup_\(Date().timeIntervalSince1970).json")
         
         do {
             try data.write(to: backupFileURL)

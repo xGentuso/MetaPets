@@ -29,7 +29,7 @@ struct LoginView: View {
                             .scaledToFit()
                             .frame(width: 160, height: 160)
                         
-                        Text("Welcome to Petopia")
+                        Text("Welcome to Meta Pets")
                             .font(.title)
                             .fontWeight(.bold)
                         

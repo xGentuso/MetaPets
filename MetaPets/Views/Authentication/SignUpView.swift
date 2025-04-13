@@ -38,7 +38,7 @@ struct SignUpView: View {
                                 .font(.title)
                                 .fontWeight(.bold)
                             
-                            Text("Join Petopia today")
+                            Text("Join Meta Pets today")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }

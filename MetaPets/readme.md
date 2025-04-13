@@ -1,6 +1,6 @@
-# Petopia - Virtual Pet App
+# Meta Pets - Virtual Pet App
 
-Petopia is a modern virtual pet simulator built with SwiftUI for iOS. Take care of your digital companion, watch it grow, and enjoy a variety of activities together.
+Meta Pets is a modern virtual pet simulator built with SwiftUI for iOS. Take care of your digital companion, watch it grow, and enjoy a variety of activities together.
 
 ## Features
 
@@ -42,13 +42,13 @@ Petopia is a modern virtual pet simulator built with SwiftUI for iOS. Take care 
 ### Installation
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/petopia.git
+git clone https://github.com/yourusername/metapets.git
 ```
 
 2. Open the project in Xcode:
 ```bash
-cd petopia
-open Petopia.xcodeproj
+cd metapets
+open Meta\ Pets.xcodeproj
 ```
 
 3. Build and run the application (⌘+R)

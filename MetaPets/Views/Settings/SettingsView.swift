@@ -64,7 +64,7 @@ struct SettingsView: View {
                         }
                     }
                     
-                    Link(destination: URL(string: "https://example.com/petopia/help")!) {
+                    Link(destination: URL(string: "https://example.com/metapets/help")!) {
                         HStack {
                             Image(systemName: "questionmark.circle")
                                 .foregroundColor(.blue)
@@ -192,7 +192,7 @@ struct SettingsView: View {
                 isPresented: $showingBackupAlert,
                 document: BackupDocument(data: AppDataManager.shared.exportData() ?? Data()),
                 contentType: .json,
-                defaultFilename: "petopia_backup_\(formattedCurrentDate())"
+                defaultFilename: "metapets_backup_\(formattedCurrentDate())"
             ) { result in
                 switch result {
                 case .success(let url):
